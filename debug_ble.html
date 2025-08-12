@@ -1,0 +1,274 @@
+<!doctype html>
+
+<head lang="ja">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <title>BLEデバッグアプリ</title>
+
+  <script>
+    var BluetoothDevice;
+    var _oDevice;
+    var _oServer;
+    var _oService;
+    var _oCharaRead;
+    var _oCharaWrite;
+    var _descriptor;
+    var _oVal;
+    var mode = 0;
+
+    var data = [];
+    var cnt = 0;
+    var cnt2 = 0;
+    var cnt_read = 0;
+
+    //デバイスと接続時の認証用UUID、ペリフェラル側で設定したものと同じである必要がある。
+    const DEVICE_SERVICE_UUID = "4fafc202-1fb5-459e-8fcc-c5c9c331914b";
+    const DEVICE_WRITE_CHARACTERISTIC_UUID =
+      "beb5483e-36e1-4688-b7f5-ea07361b26a8";
+    const DEVICE_READ_CHARACTERISTIC_UUID =
+      "beb5483f-36e1-4688-b7f5-ea07361b26a8";
+
+    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    function connect() {
+      let options = {};
+
+      options.filters = [
+        //{ acceptAllDevices: true }, //コメントアウトを外すと周囲の全てのデバイスをスキャンする
+        { services: [0x180f, DEVICE_SERVICE_UUID] }, //スキャンするデバイスのUUIDを指定
+        //{ services: [0x180f, DEVICE_SERVICE_UUID] }, //スキャンするデバイスのUUIDを指定
+        { namePrefix: "HAMA" },
+      ];
+      //options.optionalService = ["0x180F", DEVICE_SERVICE_UUID];
+      //filterの条件で周囲のBLEデバイスをスキャン
+      navigator.bluetooth
+        .requestDevice(options)
+        .then((device) => {
+          //デバイス接続
+          console.log("device", device);
+          _oDevice = device;
+          return _oDevice.gatt.connect();
+        })
+        .then((server) => {
+          //サーバー接続
+          console.log("server", server);
+          _oServer = server;
+          return Promise.all([
+            _oServer.getPrimaryService(DEVICE_SERVICE_UUID),
+            _oServer.getPrimaryService(0x180f),
+          ]);
+        })
+        .then((services) => {
+          //サービス接続
+          console.log("services:", services);
+          _oService = services[0];
+          const batteryService = services[1];
+          // バッテリーサービスの通知設定
+          batteryService
+            .getCharacteristic(0x2a19)
+            .then((characteristic) => {
+              characteristic.addEventListener(
+                "characteristicvaluechanged",
+                onRecvBatteryData
+              );
+              return characteristic.startNotifications();
+            })
+            .then(() => {
+              console.log("バッテリーレベルの通知設定成功");
+            })
+            .catch((error) => {
+              console.error("バッテリーレベル通知設定エラー: " + error);
+            });
+
+          return _oService.getCharacteristic(DEVICE_READ_CHARACTERISTIC_UUID);
+        })
+        .then((chara) => {
+          //READキャラクタリスティック接続
+          console.log("chara", chara);
+          _oCharaRead = chara;
+          _oCharaRead.addEventListener(
+            "characteristicvaluechanged",
+            onRecvSensorData
+          );
+          _oCharaRead.startNotifications();
+          console.log("READキャラクタ接続成功");
+          return _oService.getCharacteristic(DEVICE_WRITE_CHARACTERISTIC_UUID);
+        })
+        .then((chara) => {
+          //WRITEキャラクタリスティック接続
+          console.log("chara", chara);
+          _oCharaWrite = chara;
+          console.log("WRITEキャラクタ接続成功");
+          var elem = document.getElementById("status_text");
+          elem.innerText = "状態: 接続済";
+        })
+        .catch((error) => {
+          console.log(error);
+        });
+    }
+
+    function onRecvBatteryData(event) {
+      const value = event.target.value;
+      const batteryLevel = value.getUint16(0, true);
+      const now = new Date();
+      const timeString = now.toLocaleTimeString(); // "15:30:45" のような形式で取得
+
+      console.log(timeString, " BATTERY_SERVICE:", batteryLevel);
+      //if(cnt2 % 30 == 0){
+      //  document.getElementById("response_history").value += `${timeString} ${batteryLevel}\n`;
+      //}
+      //console.log("BATTERY_SERVICE:", batteryLevel + "%");
+      cnt2++;
+    }
+
+    function onRecvSensorData(event) {
+      const value = event.target.value;
+      let array = new Uint8Array(value.buffer);
+      let array_hex = [];
+      for (let i = 0; i < array.length; i++) {
+        array_hex.push(toHex(array[i]));
+      }
+      console.log(array_hex);
+      document.getElementById("response_history").value += array_hex;
+      document.getElementById("response_history").value += "\n";
+      // 0x82,0x00応答かつ5,6,7,8byteが0xffなら読み出し完了
+      if (array.length >= 9 && array[0] === 0x82 && array[1] === 0x00) {
+        if (
+          array[5] === 0xff &&
+          array[6] === 0xff &&
+          array[7] === 0xff &&
+          array[8] === 0xff
+        ) {
+          cnt_read = 0;
+          return;
+        } else {
+          if (cnt_read >= 8640) {
+            cnt_read = 0;
+            return;
+          }
+          cnt_read++;
+          const pageNum =
+            parseInt(document.getElementById("page_number").value, 10) & 0xff;
+          const cmd = new Uint8Array([
+            0x02,
+            0x00,
+            pageNum,
+            cnt_read & 0xff,
+            (cnt_read >> 8) & 0xff,
+          ]);
+          console.log("cmd:", cmd);
+          _oCharaWrite.writeValue(cmd);
+        }
+      }
+    }
+
+    function read_page() {
+      const pageNum =
+        parseInt(document.getElementById("page_number").value, 10) & 0xff;
+      // 0x02, 0x00, ページ番号, 0x00
+      document.getElementById("response_history").value +=
+        `ページ${pageNum} 読み出しコマンド送信\n`;
+      const cmd = new Uint8Array([0x02, 0x00, pageNum, 0x00, 0x00]);
+      console.log("cmd:", cmd);
+      _oCharaWrite.writeValue(cmd);
+    }
+
+    function getDevice() {}
+
+    function send_command() {
+      let data_send = document.getElementById("data_send").value; //データ取得
+      //intに変換
+      data_send = data_send.split(",");
+      for (let i = 0; i < data_send.length; i++) {
+        data_send[i] = parseInt(data_send[i], 16);
+      }
+      data_send = new Uint8Array(data_send);
+      console.log(data_send);
+      _oCharaWrite.writeValue(data_send);
+    }
+    function updateTimestamp() {
+      const now = Math.floor(Date.now() / 1000); // UNIX秒
+      const arr = new Uint8Array([
+        now & 0xff,
+        (now >> 8) & 0xff,
+        (now >> 16) & 0xff,
+        (now >> 24) & 0xff,
+      ]);
+      const cmd = new Uint8Array([0x00, 0x03, arr[0], arr[1], arr[2], arr[3]]);
+      console.log("cmd:", cmd);
+      _oCharaWrite.writeValue(cmd);
+      //document.getElementById("response_history").value +=
+      //  `[${toHex(arr[0])}, ${toHex(arr[1])}, ${toHex([2])}, ${toHex(arr[3])}]\n`;
+    }
+
+    function toHex(v) {
+      return "0x" + ("00" + v.toString(16).toUpperCase()).substr(-2);
+    }
+
+    const init = () => {};
+  </script>
+</head>
+
+<body onload="init()">
+  <main class="w-screen h-screen px-4 py-6">
+    <div class="flex flex-row justify-start item-center">
+      <p class="mr-8 h-10 leading-10" id="status_text">状態: 未接続</p>
+      <button
+        class="outline outline-1 rounded-md px-4 py-2 text-white bg-gray-900"
+        onclick="connect()"
+      >
+        接続
+      </button>
+    </div>
+    <div class="my-4"></div>
+    <div class="flex flex-row justify-start item-center">
+      <p class="mr-2 h-10 leading-10">コマンド:</p>
+    </div>
+    <div class="flex flex-row justify-start item-center">
+      <p class="mr-2 h-10 leading-10">データ (例: 0xff):</p>
+      <input class="outline outline-1 my-2 mr-4" type="text" id="data_send" />
+      <button
+        class="outline outline-1 rounded-md px-4 py-2 text-white bg-gray-900"
+        onclick="send_command()"
+      >
+        送信
+      </button>
+    </div>
+    <div class="my-8"></div>
+    <div class="flex flex-row justify-start item-center my-4">
+      <button
+        class="outline outline-1 rounded-md px-4 py-2 text-white bg-green-700"
+        onclick="updateTimestamp()"
+      >
+        タイムスタンプ更新
+      </button>
+    </div>
+    <div class="flex flex-row justify-start item-center my-4">
+      <p class="mr-2 h-10 leading-10">ページ番号:</p>
+      <input
+        class="outline outline-1 my-2 mr-4 w-24"
+        type="number"
+        id="page_number"
+        min="0"
+        max="255"
+        value="0"
+      />
+      <button
+        class="outline outline-1 rounded-md px-4 py-2 text-white bg-blue-700"
+        onclick="read_page()"
+      >
+        読み出し
+      </button>
+    </div>
+    <div class="flex flex-row justify-start item-center">
+      <p class="mr-2 h-10 leading-10">応答:</p>
+    </div>
+    <div class="flex flex-row justify-start item-center w-full">
+      <textarea
+        class="outline outline-1 rounded-xs w-[800px] text-[12px] h-96"
+        id="response_history"
+      ></textarea>
+    </div>
+  </main>
+</body>
