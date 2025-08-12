@@ -433,6 +433,7 @@ void doAction(MyEvent EVT)
     led->redBlink(100, 2000);
     // led->setLEDRGB(true, false, false);
     sampling();
+    central = BLE.central();
     if (central && central.connected())
     {
       // notify();
@@ -440,6 +441,7 @@ void doAction(MyEvent EVT)
     else
     {
       // 接続が切れた場合
+      ble->poll();
     }
     if ((cnt - 1) % 50 == 0)
     {
