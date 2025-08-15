@@ -79,12 +79,12 @@ void saveToQSPI()
   val[21] = uint8_t(acc_comp_sum[8] >> 8);
   val[22] = uint8_t(acc_comp_sum[9] >> 0);
   val[23] = uint8_t(acc_comp_sum[9] >> 8);
-  int iTmp = (int)(envSensor->tmp * 100);
-  int iHum = (int)(envSensor->hum * 100);
-  val[24] = uint8_t(iTmp >> 0);
-  val[25] = uint8_t(iTmp >> 8);
-  val[26] = uint8_t(iHum >> 0);
-  val[27] = uint8_t(iHum >> 8);
+  int iTmpObj = (int)(envSensor->tmp_obj * 100);
+  int iTmpEnv = (int)(envSensor->tmp_env * 100);
+  val[24] = uint8_t(iTmpObj >> 0);
+  val[25] = uint8_t(iTmpObj >> 8);
+  val[26] = uint8_t(iTmpEnv >> 0);
+  val[27] = uint8_t(iTmpEnv >> 8);
 
   if (data_page_no == 0)
   {
@@ -314,12 +314,12 @@ MyState handler_wait_cmd_get_latest_data(void *payload)
   val[23] = uint8_t(acc_comp_sum[8] >> 8);
   val[24] = uint8_t(acc_comp_sum[9] >> 0);
   val[25] = uint8_t(acc_comp_sum[9] >> 8);
-  int iTmp = (int)(envSensor->tmp * 100);
-  int iHum = (int)(envSensor->hum * 100);
-  val[26] = uint8_t(iTmp >> 0);
-  val[27] = uint8_t(iTmp >> 8);
-  val[28] = uint8_t(iHum >> 0);
-  val[29] = uint8_t(iHum >> 8);
+  int iTmpObj = (int)(envSensor->tmp_obj * 100);
+  int iTmpEnv = (int)(envSensor->tmp_env * 100);
+  val[26] = uint8_t(iTmpObj >> 0);
+  val[27] = uint8_t(iTmpObj >> 8);
+  val[28] = uint8_t(iTmpEnv >> 0);
+  val[29] = uint8_t(iTmpEnv >> 8);
   ble->SENSOR_TX_Chara->writeValue(val, 30); // 30バイトの値を送信
   return STATE_WAIT;
 }
@@ -471,12 +471,12 @@ MyState handler_meas_cmd_get_latest_data(void *payload)
   val[23] = uint8_t(acc_comp_sum[8] >> 8);
   val[24] = uint8_t(acc_comp_sum[9] >> 0);
   val[25] = uint8_t(acc_comp_sum[9] >> 8);
-  int iTmp = (int)(envSensor->tmp * 100);
-  int iHum = (int)(envSensor->hum * 100);
-  val[26] = uint8_t(iTmp >> 0);
-  val[27] = uint8_t(iTmp >> 8);
-  val[28] = uint8_t(iHum >> 0);
-  val[29] = uint8_t(iHum >> 8);
+  int iTmpObj = (int)(envSensor->tmp_obj * 100);
+  int iTmpEnv = (int)(envSensor->tmp_env * 100);
+  val[26] = uint8_t(iTmpObj >> 0);
+  val[27] = uint8_t(iTmpObj >> 8);
+  val[28] = uint8_t(iTmpEnv >> 0);
+  val[29] = uint8_t(iTmpEnv >> 8);
   ble->SENSOR_TX_Chara->writeValue(val, 30); // 30バイトの値を送信
   return STATE_MEAS;
 }
@@ -531,20 +531,20 @@ MyState handler_meas_timer1_timeout(void *payload)
   // Serial.print(",");
   // Serial.print(sensor->acc_z);
   // Serial.println();
-  Serial.print((uint16_t)(sensor->acc_comp * 1000));
   acc_comp_sum[(cnt / 5) % 10] += (uint16_t)(sensor->acc_comp * 1000); // 0.5sの間に取得した加速度センサの値の合計
-  Serial.println();
-  // ulong time_e_last = 0;
-  // acc_x_sum += abs(sensor->acc_x);
-  // acc_y_sum += abs(sensor->acc_y);
-  // acc_z_sum += abs(sensor->acc_z);
-  envSensor->getValue();
+  // Serial.print((uint16_t)(sensor->acc_comp * 1000));
+  // Serial.println();
+  //  ulong time_e_last = 0;
+  //  acc_x_sum += abs(sensor->acc_x);
+  //  acc_y_sum += abs(sensor->acc_y);
+  //  acc_z_sum += abs(sensor->acc_z);
   cnt++;
   return STATE_MEAS;
 }
 
 MyState handler_meas_timer2_timeout(void *payload)
 {
+  envSensor->getValue();
   Serial.print("cnt : ");
   Serial.println(cnt);
   uint32_t now = sys->timestamp + (millis() - sys->time_from_get_timstamp) / 1000; // タイムスタンプ + タイムスタンプ取得からの経過時間
@@ -552,10 +552,10 @@ MyState handler_meas_timer2_timeout(void *payload)
   Serial.println(now);
   Serial.print("acc_comp_sum : ");
   Serial.println(acc_comp_sum[0]);
-  Serial.print("temp : ");
-  Serial.println(envSensor->tmp);
-  Serial.print("hum : ");
-  Serial.println(envSensor->hum);
+  Serial.print("temp_obj : ");
+  Serial.println(envSensor->tmp_obj);
+  Serial.print("temp_env : ");
+  Serial.println(envSensor->tmp_env);
   saveToQSPI();
   for (uint8_t i = 0; i < 10; i++)
   {
