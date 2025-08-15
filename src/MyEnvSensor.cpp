@@ -38,7 +38,13 @@ void MyEnvSensor::ReadFromMLX90614(char addr, char cmd, char *arry)
 
   Wire.requestFrom(addr, 3); // request data+pec byte
   while (Wire.available() < 3)
-    ; // wait receive complete
+  {
+    // Wire.beginTransmission(addr); // start recieve process
+    // Wire.write(cmd);              // Write command
+    // Wire.endTransmission(false);  // publish repeat start condition
+
+    Wire.requestFrom(addr, 3); // request data+pec byte
+  }
   for (i = 0; i < 2; i++)
   {
     arry[i] = Wire.read(); // read data
