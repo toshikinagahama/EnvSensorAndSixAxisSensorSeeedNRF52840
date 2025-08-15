@@ -42,6 +42,7 @@ public:
   void poll();
   void advertiseStart();
   void advertiseStop();
+  static void BatteryCharaReadHandler(BLEDevice central, BLECharacteristic chara);
   static void SensorCharaReadHandler(BLEDevice central, BLECharacteristic chara);
   static void SensorCharaWrittenHandler(BLEDevice central, BLECharacteristic chara);
   static void blePeripheralConnectHandler(BLEDevice central);

@@ -1,47 +1,19 @@
 #include "MyHandler.h"
 #include "MyFlashMemory.h"
 
-ulong time_s0 = 0;
-ulong time_s = 0;
-ulong time_e = 0;
-ulong time_battery_s = 0; // バッテリー送付タイミング用（1sに1回送付）
 ulong cnt = 0;
-ulong cnt_save = 0;       // 保存用カウンタ
-uint8_t data_page_no = 0; // データページ番号
-int32_t acc_x_sum = 0;    // 10msの間に取得した加速度センサの値の合計
-int32_t acc_y_sum = 0;    // 10msの間に取得した加速度センサの値の合計
-int32_t acc_z_sum = 0;    // 10msの間に取得した加速度センサの値の合計
-
-/**
- * @brief センサの値のサンプリング
- *
- */
-void sampling()
-{
-  // 100msごとにセンサの値を取得
-  // サンプリング
-  sensor->getValue();
-  // ulong time_e_last = 0;
-  acc_x_sum += abs(sensor->acc_x);
-  acc_y_sum += abs(sensor->acc_y);
-  acc_z_sum += abs(sensor->acc_z);
-  envSensor->getValue();
-  time_e = micros();
-  // 1000 = 1ms なので100000 = 100ms
-  while (time_e - time_s0 < 100000 * cnt)
-  {
-    time_e = micros();
-  }
-  ulong tmp_time_s = time_s;
-  time_s = time_e;
-  cnt++;
-}
-
+ulong cnt_save = 0;              // 保存用カウンタ
+uint8_t data_page_no = 0;        // データページ番号
+uint16_t acc_comp_sum[10] = {0}; // 0.5sの間に取得した加速度センサの値の合計
+//
 void init_meas()
 {
-  time_s0 = micros();
   cnt = 0;
   cnt_save = 0;
+  for (uint8_t i = 0; i < 10; i++)
+  {
+    acc_comp_sum[i] = 0;
+  }
   // 初期化したいが、関数使うと長さの指定ができないので、自分で書き込む
   uint32_t add = 0;
   if (data_page_no == 0)
@@ -75,63 +47,64 @@ void stop_meas()
 {
   // 測定終了
   data_page_no = (data_page_no + 1) % 5;
-  acc_x_sum = 0;
-  acc_y_sum = 0;
-  acc_z_sum = 0;
-  cnt = 0;
-  cnt_save = 0;
-  time_s = 0;
-  time_e = 0;
 }
 
 void saveToQSPI()
 {
   // QSPIに保存
-  // タイムスタンプ（4byte）, x 軸加速度積算値（4byte）, y 軸加速度積算値（4byte）, z 軸加速度積算値（4byte）, 温度（2byte）, 湿度（2byte）
-  uint8_t val[20];
+  // タイムスタンプ（4byte）, 加速度積算値10個(20byte), 温度（2byte）, 湿度（2byte）
+  uint8_t val[NUM_DATA_SIZE];
   uint32_t now = sys->timestamp + (millis() - sys->time_from_get_timstamp) / 1000; // タイムスタンプ + タイムスタンプ取得からの経過時間
   val[0] = uint8_t(now >> 0);
   val[1] = uint8_t(now >> 8);
   val[2] = uint8_t(now >> 16);
   val[3] = uint8_t(now >> 24);
-  val[4] = uint8_t(acc_x_sum >> 0);
-  val[5] = uint8_t(acc_x_sum >> 8);
-  val[6] = uint8_t(acc_x_sum >> 16);
-  val[7] = uint8_t(acc_x_sum >> 24);
-  val[8] = uint8_t(acc_y_sum >> 0);
-  val[9] = uint8_t(acc_y_sum >> 8);
-  val[10] = uint8_t(acc_y_sum >> 16);
-  val[11] = uint8_t(acc_y_sum >> 24);
-  val[12] = uint8_t(acc_z_sum >> 0);
-  val[13] = uint8_t(acc_z_sum >> 8);
-  val[14] = uint8_t(acc_z_sum >> 16);
-  val[15] = uint8_t(acc_z_sum >> 24);
+  val[4] = uint8_t(acc_comp_sum[0] >> 0);
+  val[5] = uint8_t(acc_comp_sum[0] >> 8);
+  val[6] = uint8_t(acc_comp_sum[1] >> 0);
+  val[7] = uint8_t(acc_comp_sum[1] >> 8);
+  val[8] = uint8_t(acc_comp_sum[2] >> 0);
+  val[9] = uint8_t(acc_comp_sum[2] >> 8);
+  val[10] = uint8_t(acc_comp_sum[3] >> 0);
+  val[11] = uint8_t(acc_comp_sum[3] >> 8);
+  val[12] = uint8_t(acc_comp_sum[4] >> 0);
+  val[13] = uint8_t(acc_comp_sum[4] >> 8);
+  val[14] = uint8_t(acc_comp_sum[5] >> 0);
+  val[15] = uint8_t(acc_comp_sum[5] >> 8);
+  val[16] = uint8_t(acc_comp_sum[6] >> 0);
+  val[17] = uint8_t(acc_comp_sum[6] >> 8);
+  val[18] = uint8_t(acc_comp_sum[7] >> 0);
+  val[19] = uint8_t(acc_comp_sum[7] >> 8);
+  val[20] = uint8_t(acc_comp_sum[8] >> 0);
+  val[21] = uint8_t(acc_comp_sum[8] >> 8);
+  val[22] = uint8_t(acc_comp_sum[9] >> 0);
+  val[23] = uint8_t(acc_comp_sum[9] >> 8);
   int iTmp = (int)(envSensor->tmp * 100);
   int iHum = (int)(envSensor->hum * 100);
-  val[16] = uint8_t(iTmp >> 0);
-  val[17] = uint8_t(iTmp >> 8);
-  val[18] = uint8_t(iHum >> 0);
-  val[19] = uint8_t(iHum >> 8);
+  val[24] = uint8_t(iTmp >> 0);
+  val[25] = uint8_t(iTmp >> 8);
+  val[26] = uint8_t(iHum >> 0);
+  val[27] = uint8_t(iHum >> 8);
 
   if (data_page_no == 0)
   {
-    QSPI_Write(val, ADDRESS_DATA_PAGE_1 + cnt_save * 20, 20);
+    QSPI_Write(val, ADDRESS_DATA_PAGE_1 + cnt_save * NUM_DATA_SIZE, NUM_DATA_SIZE);
   }
   else if (data_page_no == 1)
   {
-    QSPI_Write(val, ADDRESS_DATA_PAGE_2 + cnt_save * 20, 20);
+    QSPI_Write(val, ADDRESS_DATA_PAGE_2 + cnt_save * NUM_DATA_SIZE, NUM_DATA_SIZE);
   }
   else if (data_page_no == 2)
   {
-    QSPI_Write(val, ADDRESS_DATA_PAGE_3 + cnt_save * 20, 20);
+    QSPI_Write(val, ADDRESS_DATA_PAGE_3 + cnt_save * NUM_DATA_SIZE, NUM_DATA_SIZE);
   }
   else if (data_page_no == 3)
   {
-    QSPI_Write(val, ADDRESS_DATA_PAGE_4 + cnt_save * 20, 20);
+    QSPI_Write(val, ADDRESS_DATA_PAGE_4 + cnt_save * NUM_DATA_SIZE, NUM_DATA_SIZE);
   }
   else if (data_page_no == 4)
   {
-    QSPI_Write(val, ADDRESS_DATA_PAGE_5 + cnt_save * 20, 20);
+    QSPI_Write(val, ADDRESS_DATA_PAGE_5 + cnt_save * NUM_DATA_SIZE, NUM_DATA_SIZE);
   }
   cnt_save++;
   if (cnt_save >= 8640)
@@ -147,30 +120,30 @@ void saveToQSPI()
  */
 void notify()
 {
-  uint8_t val[22];
-  val[0] = 0x01; // 識別子1
-  val[1] = 0x01; // 識別子2
-  val[2] = uint8_t(cnt >> 0);
-  val[3] = uint8_t(cnt >> 8);
-  val[4] = uint8_t(cnt >> 16);
-  val[5] = uint8_t(cnt >> 24);
-  val[6] = uint8_t(uint8_t(sensor->IMU->settings.accelRange >> 0));
-  val[7] = uint8_t(uint8_t(sensor->IMU->settings.accelRange >> 8));
-  val[8] = uint8_t(uint8_t(sensor->IMU->settings.gyroRange >> 0));
-  val[9] = uint8_t(uint8_t(sensor->IMU->settings.gyroRange >> 8));
-  val[10] = uint8_t(uint8_t(sensor->acc_x >> 0));
-  val[11] = uint8_t(uint8_t(sensor->acc_x >> 8));
-  val[12] = uint8_t(uint8_t(sensor->acc_y >> 0));
-  val[13] = uint8_t(uint8_t(sensor->acc_y >> 8));
-  val[14] = uint8_t(uint8_t(sensor->acc_z >> 0));
-  val[15] = uint8_t(uint8_t(sensor->acc_z >> 8));
-  val[16] = uint8_t(uint8_t(sensor->gyr_x >> 0));
-  val[17] = uint8_t(uint8_t(sensor->gyr_x >> 8));
-  val[18] = uint8_t(uint8_t(sensor->gyr_y >> 0));
-  val[19] = uint8_t(uint8_t(sensor->gyr_y >> 8));
-  val[20] = uint8_t(uint8_t(sensor->gyr_z >> 0));
-  val[21] = uint8_t(uint8_t(sensor->gyr_z >> 8));
-  ble->SENSOR_TX_Chara->writeValue(val, 22);
+  // uint8_t val[22];
+  // val[0] = 0x01; // 識別子1
+  // val[1] = 0x01; // 識別子2
+  // val[2] = uint8_t(cnt >> 0);
+  // val[3] = uint8_t(cnt >> 8);
+  // val[4] = uint8_t(cnt >> 16);
+  // val[5] = uint8_t(cnt >> 24);
+  // val[6] = uint8_t(uint8_t(sensor->IMU->settings.accelRange >> 0));
+  // val[7] = uint8_t(uint8_t(sensor->IMU->settings.accelRange >> 8));
+  // val[8] = uint8_t(uint8_t(sensor->IMU->settings.gyroRange >> 0));
+  // val[9] = uint8_t(uint8_t(sensor->IMU->settings.gyroRange >> 8));
+  // val[10] = uint8_t(uint8_t(sensor->acc_x >> 0));
+  // val[11] = uint8_t(uint8_t(sensor->acc_x >> 8));
+  // val[12] = uint8_t(uint8_t(sensor->acc_y >> 0));
+  // val[13] = uint8_t(uint8_t(sensor->acc_y >> 8));
+  // val[14] = uint8_t(uint8_t(sensor->acc_z >> 0));
+  // val[15] = uint8_t(uint8_t(sensor->acc_z >> 8));
+  // val[16] = uint8_t(uint8_t(sensor->gyr_x >> 0));
+  // val[17] = uint8_t(uint8_t(sensor->gyr_x >> 8));
+  // val[18] = uint8_t(uint8_t(sensor->gyr_y >> 0));
+  // val[19] = uint8_t(uint8_t(sensor->gyr_y >> 8));
+  // val[20] = uint8_t(uint8_t(sensor->gyr_z >> 0));
+  // val[21] = uint8_t(uint8_t(sensor->gyr_z >> 8));
+  // ble->SENSOR_TX_Chara->writeValue(val, 22);
 }
 
 void notifyVersion()
@@ -222,24 +195,7 @@ void notifyTimestamp()
 
 MyState handler_wait_nop(void *payload)
 {
-  // BLEデバイスの状態で点滅か点灯か変える
-  central = BLE.central();
-  if (central && central.connected())
-  {
-    if (sys->timestamp == 0)
-      led->setLEDRGB(false, true, false);
-    else
-      led->setLEDRGB(false, false, true);
-  }
-  else
-  {
-    // 接続が切れた場合
-    ble->poll();
-    if (sys->timestamp == 0)
-      led->greenBlink(200, 1000); // タイムスタンプが0ならば、グリーン点滅
-    else
-      led->blueBlink(200, 1000); // タイムスタンプが0でなければ、ブルー点滅
-  }
+  // bleデバイスの状態で点滅か点灯か変える
   return STATE_WAIT;
 }
 
@@ -283,9 +239,8 @@ MyState handler_wait_cmd_set_start_timestamp(void *payload)
   return STATE_WAIT;
 }
 
-MyState handler_wait_cmd_get_data_1_byte(void *payload)
+MyState handler_wait_cmd_get_data_1_data(void *payload)
 {
-  // 1byteって書いてるが、実際はデータは20byteなので、20byte取得する TODO: 名前を変更する
   //  1バイトデータ取得
   {
     led->setLEDRGB(true, false, false);
@@ -326,6 +281,70 @@ MyState handler_wait_cmd_get_data_1_byte(void *payload)
     memcpy(&val[5], pBuf, 20);
     ble->SENSOR_TX_Chara->writeValue(val, 25); // 25バイトの値を送信
   }
+  return STATE_WAIT;
+}
+
+MyState handler_wait_cmd_get_latest_data(void *payload)
+{
+  uint8_t val[30];
+  uint32_t now = sys->timestamp + (millis() - sys->time_from_get_timstamp) / 1000; // タイムスタンプ + タイムスタンプ取得からの経過時間
+  val[0] = 0x82;                                                                   // 識別子1
+  val[1] = 0x01;                                                                   // 識別子2
+  val[2] = uint8_t(now >> 0);
+  val[3] = uint8_t(now >> 8);
+  val[4] = uint8_t(now >> 16);
+  val[5] = uint8_t(now >> 24);
+  val[6] = uint8_t(acc_comp_sum[0] >> 0);
+  val[7] = uint8_t(acc_comp_sum[0] >> 8);
+  val[8] = uint8_t(acc_comp_sum[1] >> 0);
+  val[9] = uint8_t(acc_comp_sum[1] >> 8);
+  val[10] = uint8_t(acc_comp_sum[2] >> 0);
+  val[11] = uint8_t(acc_comp_sum[2] >> 8);
+  val[12] = uint8_t(acc_comp_sum[3] >> 0);
+  val[13] = uint8_t(acc_comp_sum[3] >> 8);
+  val[14] = uint8_t(acc_comp_sum[4] >> 0);
+  val[15] = uint8_t(acc_comp_sum[4] >> 8);
+  val[16] = uint8_t(acc_comp_sum[5] >> 0);
+  val[17] = uint8_t(acc_comp_sum[5] >> 8);
+  val[18] = uint8_t(acc_comp_sum[6] >> 0);
+  val[19] = uint8_t(acc_comp_sum[6] >> 8);
+  val[20] = uint8_t(acc_comp_sum[7] >> 0);
+  val[21] = uint8_t(acc_comp_sum[7] >> 8);
+  val[22] = uint8_t(acc_comp_sum[8] >> 0);
+  val[23] = uint8_t(acc_comp_sum[8] >> 8);
+  val[24] = uint8_t(acc_comp_sum[9] >> 0);
+  val[25] = uint8_t(acc_comp_sum[9] >> 8);
+  int iTmp = (int)(envSensor->tmp * 100);
+  int iHum = (int)(envSensor->hum * 100);
+  val[26] = uint8_t(iTmp >> 0);
+  val[27] = uint8_t(iTmp >> 8);
+  val[28] = uint8_t(iHum >> 0);
+  val[29] = uint8_t(iHum >> 8);
+  ble->SENSOR_TX_Chara->writeValue(val, 30); // 30バイトの値を送信
+  return STATE_WAIT;
+}
+
+MyState handler_wait_cmd_get_timestamp(void *payload)
+{
+  uint8_t val[6];
+  uint32_t now = sys->timestamp + (millis() - sys->time_from_get_timstamp) / 1000; // タイムスタンプ + タイムスタンプ取得からの経過時間
+  val[0] = 0x80;
+  val[1] = 0x04;
+  val[2] = uint8_t(now >> 0);
+  val[3] = uint8_t(now >> 8);
+  val[4] = uint8_t(now >> 16);
+  val[5] = uint8_t(now >> 24);
+  ble->SENSOR_TX_Chara->writeValue(val, 6);
+  return STATE_WAIT;
+}
+
+MyState handler_wait_cmd_get_data_page_no(void *payload)
+{
+  uint8_t val[3];
+  val[0] = 0x80;
+  val[1] = 0x05;
+  val[2] = data_page_no;
+  ble->SENSOR_TX_Chara->writeValue(val, 3);
   return STATE_WAIT;
 }
 
@@ -372,19 +391,13 @@ MyState handler_wait_timer2_timeout(void *payload)
   return STATE_WAIT;
 }
 
+MyState handler_wait_timer3_timeout(void *payload)
+{
+  return STATE_WAIT;
+}
+
 MyState handler_meas_nop(void *payload)
 {
-  sampling();
-  central = BLE.central();
-  if (central && central.connected())
-  {
-    led->redBlink(100, 1000);
-  }
-  else
-  {
-    ble->poll();
-    led->redBlink(100, 2000);
-  }
   return STATE_MEAS;
 }
 
@@ -423,8 +436,72 @@ MyState handler_meas_cmd_set_start_timestamp(void *payload)
 {
   return STATE_MEAS;
 }
-MyState handler_meas_cmd_get_data_1_byte(void *payload)
+MyState handler_meas_cmd_get_data_1_data(void *payload)
 {
+  return STATE_MEAS;
+}
+
+MyState handler_meas_cmd_get_latest_data(void *payload)
+{
+  uint8_t val[30];
+  uint32_t now = sys->timestamp + (millis() - sys->time_from_get_timstamp) / 1000; // タイムスタンプ + タイムスタンプ取得からの経過時間
+  val[0] = 0x82;                                                                   // 識別子1
+  val[1] = 0x01;                                                                   // 識別子2
+  val[2] = uint8_t(now >> 0);
+  val[3] = uint8_t(now >> 8);
+  val[4] = uint8_t(now >> 16);
+  val[5] = uint8_t(now >> 24);
+  val[6] = uint8_t(acc_comp_sum[0] >> 0);
+  val[7] = uint8_t(acc_comp_sum[0] >> 8);
+  val[8] = uint8_t(acc_comp_sum[1] >> 0);
+  val[9] = uint8_t(acc_comp_sum[1] >> 8);
+  val[10] = uint8_t(acc_comp_sum[2] >> 0);
+  val[11] = uint8_t(acc_comp_sum[2] >> 8);
+  val[12] = uint8_t(acc_comp_sum[3] >> 0);
+  val[13] = uint8_t(acc_comp_sum[3] >> 8);
+  val[14] = uint8_t(acc_comp_sum[4] >> 0);
+  val[15] = uint8_t(acc_comp_sum[4] >> 8);
+  val[16] = uint8_t(acc_comp_sum[5] >> 0);
+  val[17] = uint8_t(acc_comp_sum[5] >> 8);
+  val[18] = uint8_t(acc_comp_sum[6] >> 0);
+  val[19] = uint8_t(acc_comp_sum[6] >> 8);
+  val[20] = uint8_t(acc_comp_sum[7] >> 0);
+  val[21] = uint8_t(acc_comp_sum[7] >> 8);
+  val[22] = uint8_t(acc_comp_sum[8] >> 0);
+  val[23] = uint8_t(acc_comp_sum[8] >> 8);
+  val[24] = uint8_t(acc_comp_sum[9] >> 0);
+  val[25] = uint8_t(acc_comp_sum[9] >> 8);
+  int iTmp = (int)(envSensor->tmp * 100);
+  int iHum = (int)(envSensor->hum * 100);
+  val[26] = uint8_t(iTmp >> 0);
+  val[27] = uint8_t(iTmp >> 8);
+  val[28] = uint8_t(iHum >> 0);
+  val[29] = uint8_t(iHum >> 8);
+  ble->SENSOR_TX_Chara->writeValue(val, 30); // 30バイトの値を送信
+  return STATE_MEAS;
+}
+
+MyState handler_meas_cmd_get_timestamp(void *payload)
+{
+  uint8_t val[6];
+  uint32_t now = sys->timestamp + (millis() - sys->time_from_get_timstamp) / 1000; // タイムスタンプ + タイムスタンプ取得からの経過時間
+  val[0] = 0x80;
+  val[1] = 0x04;
+  val[2] = uint8_t(now >> 0);
+  val[3] = uint8_t(now >> 8);
+  val[4] = uint8_t(now >> 16);
+  val[5] = uint8_t(now >> 24);
+  ble->SENSOR_TX_Chara->writeValue(val, 6);
+  return STATE_MEAS;
+}
+
+MyState handler_meas_cmd_get_data_page_no(void *payload)
+{
+  uint8_t val[3];
+  val[0] = 0x80;
+  val[1] = 0x05;
+  val[2] = data_page_no;
+  ble->SENSOR_TX_Chara->writeValue(val, 3);
   return STATE_MEAS;
 }
 
@@ -440,7 +517,29 @@ MyState handler_meas_button_a_long_pressed(void *payload)
 
 MyState handler_meas_timer1_timeout(void *payload)
 {
-  ble->Battery_chara->writeValue((batterySensor->getValue()));
+  // ble->Battery_chara->writeValue((batterySensor->getValue()));
+  sensor->getValue();
+  // Serial.print(sensor->roll);
+  // Serial.print(",");
+  // Serial.print(sensor->pitch);
+  // Serial.print(",");
+  // Serial.print(sensor->yaw);
+  // Serial.println();
+  // Serial.print(sensor->acc_x);
+  // Serial.print(",");
+  // Serial.print(sensor->acc_y);
+  // Serial.print(",");
+  // Serial.print(sensor->acc_z);
+  // Serial.println();
+  Serial.print((uint16_t)(sensor->acc_comp * 1000));
+  acc_comp_sum[(cnt / 5) % 10] += (uint16_t)(sensor->acc_comp * 1000); // 0.5sの間に取得した加速度センサの値の合計
+  Serial.println();
+  // ulong time_e_last = 0;
+  // acc_x_sum += abs(sensor->acc_x);
+  // acc_y_sum += abs(sensor->acc_y);
+  // acc_z_sum += abs(sensor->acc_z);
+  envSensor->getValue();
+  cnt++;
   return STATE_MEAS;
 }
 
@@ -451,20 +550,17 @@ MyState handler_meas_timer2_timeout(void *payload)
   uint32_t now = sys->timestamp + (millis() - sys->time_from_get_timstamp) / 1000; // タイムスタンプ + タイムスタンプ取得からの経過時間
   Serial.print("now : ");
   Serial.println(now);
-  Serial.print("acc_x_sum : ");
-  Serial.println(acc_x_sum);
-  Serial.print("acc_y_sum : ");
-  Serial.println(acc_y_sum);
-  Serial.print("acc_z_sum : ");
-  Serial.println(acc_z_sum);
+  Serial.print("acc_comp_sum : ");
+  Serial.println(acc_comp_sum[0]);
   Serial.print("temp : ");
   Serial.println(envSensor->tmp);
   Serial.print("hum : ");
   Serial.println(envSensor->hum);
   saveToQSPI();
-  acc_x_sum = 0; // 100msの間に取得した加速度センサの値の合計をリセット
-  acc_y_sum = 0; // 100msの間に取得した加速度センサの値の合計をリセット
-  acc_z_sum = 0; // 100msの間に取得した加速度センサの値の合計をリセット
+  for (uint8_t i = 0; i < 10; i++)
+  {
+    acc_comp_sum[i] = 0;
+  }
   return STATE_MEAS;
 }
 
@@ -484,7 +580,10 @@ EventHandler state_transition_table[STATE_MAX][EVT_MAX] = {
         handler_wait_cmd_get_device_info,     // EVT_BLE_CMD_GET_DEVICE_INFO
         handler_wait_cmd_get_start_timestamp, // EVT_BLE_CMD_GET_START_TIMESTAMP
         handler_wait_cmd_set_start_timestamp, // EVT_BLE_CMD_SET_START_TIMESTAMP
-        handler_wait_cmd_get_data_1_byte,     // EVT_BLE_CMD_GET_DATA_1_BYTE
+        handler_wait_cmd_get_data_1_data,     // EVT_BLE_CMD_GET_DATA_1_DATA
+        handler_wait_cmd_get_latest_data,     // EVT_BLE_CMD_GET_LATEST_DATA
+        handler_wait_cmd_get_timestamp,       // EVT_BLE_CMD_GET_TIMESTAMP
+        handler_wait_cmd_get_data_page_no,    // EVT_BLE_CMD_GET_DATA_PAGE_NO
         handler_wait_button_a_short_pressed,  // EVT_BUTTON_A_SHORT_PRESSED
         handler_wait_button_a_long_pressed,   // EVT_BUTTON_A_LONG_PRESSED
         handler_wait_timer1_timeout,          // EVT_TIMER1_TIMEOUT
@@ -501,7 +600,10 @@ EventHandler state_transition_table[STATE_MAX][EVT_MAX] = {
         handler_meas_cmd_get_device_info,     // EVT_BLE_CMD_GET_DEVICE_INFO
         handler_meas_cmd_get_start_timestamp, // EVT_BLE_CMD_GET_START_TIMESTAMP
         handler_meas_cmd_set_start_timestamp, // EVT_BLE_CMD_SET_START_TIMESTAMP
-        handler_meas_cmd_get_data_1_byte,     // EVT_BLE_CMD_GET_DATA_1_BYTE
+        handler_meas_cmd_get_data_1_data,     // EVT_BLE_CMD_GET_DATA_1_DATA
+        handler_meas_cmd_get_latest_data,     // EVT_BLE_CMD_GET_LATEST_DATA
+        handler_meas_cmd_get_timestamp,       // EVT_BLE_CMD_GET_TIMESTAMP
+        handler_meas_cmd_get_data_page_no,    // EVT_BLE_CMD_GET_DATA_PAGE_NO
         handler_meas_button_a_short_pressed,  // EVT_BUTTON_A_SHORT_PRESSED
         handler_meas_button_a_long_pressed,   // EVT_BUTTON_A_LONG_PRESSED
         handler_meas_timer1_timeout,          // EVT_TIMER1_TIMEOUT

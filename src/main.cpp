@@ -44,10 +44,53 @@ void getTimestamp()
   }
 }
 
+void ble_update()
+{
+  central = BLE.central();
+  if (central && central.connected())
+  {
+  }
+  else
+  {
+    ble->poll();
+  }
+}
+
+void ui_update()
+{
+  switch (state)
+  {
+  case STATE_WAIT:
+    if (central && central.connected())
+    {
+      if (sys->timestamp == 0)
+        led->setLEDRGB(false, true, false);
+      else
+        led->setLEDRGB(false, false, true);
+    }
+    else
+    {
+      if (sys->timestamp == 0)
+        led->greenBlink(200, 1000); // タイムスタンプが0ならば、グリーン点滅
+      else
+        led->blueBlink(200, 1000); // タイムスタンプが0でなければ、ブルー点滅
+    }
+    break;
+  case STATE_MEAS:
+    if (central && central.connected())
+      led->redBlink(100, 1000);
+    else
+      led->redBlink(100, 2000);
+    break;
+  default:
+    break;
+  }
+}
+
 void setup()
 {
   Serial.begin(115200);
-  delay(3000);
+  delay(1000);
   sys->initialize(); // システムの初期化
   batterySensor->initialize();
   led->initialize();
@@ -66,11 +109,12 @@ void setup()
 
 void loop()
 {
-  timer_update();  // タイマーの更新
-  button_update(); // ボタンの更新
-  //
-  MyEvent event = dequeue(); // イベントキューからイベントを取得
-  EventHandler handler = state_transition_table[state][event.id];
-  state = handler(&event.payload); // イベントハンドラを呼び出す
-  delayMicroseconds(1);            // ディレイ
+  timer_update();                                                 // タイマーの更新
+  button_update();                                                // ボタンの更新
+  ble_update();                                                   // BLEの更新
+  MyEvent event = dequeue();                                      // イベントキューからイベントを取得
+  EventHandler handler = state_transition_table[state][event.id]; // 状態遷移テーブルからハンドラを取得
+  state = handler(&event.payload);                                // イベントハンドラを呼び出す
+  ui_update();                                                    // 状態に応じて表示を更新 ※handlerの中で表示を更新してもいいが、ここでやる
+  delayMicroseconds(1);                                           // ディレイ
 }

@@ -25,6 +25,13 @@ MyBLE::~MyBLE()
   delete this->SENSOR_Descriptor;
 }
 
+void MyBLE::BatteryCharaReadHandler(BLEDevice central, BLECharacteristic chara)
+{
+  // バッテリーチャラクタの読み取りハンドラ
+  uint8_t batteryLevel = batterySensor->getValue(); // 一旦。本当はイベントキューに入れないと。あんまりやりたくないけど、ここで直接取得
+  chara.writeValue(batteryLevel);
+}
+
 void MyBLE::SensorCharaWrittenHandler(BLEDevice central, BLECharacteristic chara)
 {
   // 受け取ったメッセージごとに処理
@@ -58,6 +65,14 @@ void MyBLE::SensorCharaWrittenHandler(BLEDevice central, BLECharacteristic chara
         enqueue(EVT_BLE_CMD_SET_START_TIMESTAMP, &tmp[2], 6);
       }
       break;
+    case 0x04:
+      // 現在のタイムスタンプ取得
+      enqueue(EVT_BLE_CMD_GET_TIMESTAMP, NULL, 0);
+      break;
+    case 0x05:
+      // 現在のデータページNO取得
+      enqueue(EVT_BLE_CMD_GET_DATA_PAGE_NO, NULL, 0);
+      break;
     default:
       break;
     }
@@ -87,7 +102,13 @@ void MyBLE::SensorCharaWrittenHandler(BLEDevice central, BLECharacteristic chara
       {
         uint8_t tmp[5];
         chara.readValue(tmp, 5); // 7バイトの値を読み込む（3byte目はページ番号、4~5byte目はデータ番号）
-        enqueue(EVT_BLE_CMD_GET_DATA_1_BYTE, &tmp[2], 3);
+        enqueue(EVT_BLE_CMD_GET_DATA_1_DATA, &tmp[2], 3);
+      }
+      break;
+    case 0x01:
+      // 最新のデータ取得
+      {
+        enqueue(EVT_BLE_CMD_GET_LATEST_DATA, NULL, 0);
       }
       break;
     default:
@@ -128,6 +149,8 @@ void MyBLE::initialize()
     while (1)
       ;
   }
+  BLE.setConnectable(true); // 接続可能にする
+  BLE.setPairable(true);    // ペアリング可能にする
   BLE.setEventHandler(BLEConnected, this->blePeripheralConnectHandler);
   BLE.setEventHandler(BLEDisconnected, this->blePeripheralDisconnectHandler);
   BLE.setDeviceName(BLE_LOCAL_NAME);
@@ -140,6 +163,7 @@ void MyBLE::initialize()
   this->Battery_Service->addCharacteristic(*this->Battery_chara);  // add characteristic
   this->SENSOR_TX_Chara->addDescriptor(*this->SENSOR_Descriptor);  // add descriptor
   this->SENSOR_RX_Chara->addDescriptor(*this->SENSOR_Descriptor);  // add descriptor
+  this->Battery_chara->setEventHandler(BLERead, this->BatteryCharaReadHandler);
   this->SENSOR_TX_Chara->setEventHandler(BLERead, this->SensorCharaReadHandler);
   this->SENSOR_RX_Chara->setEventHandler(BLEWritten, this->SensorCharaWrittenHandler);
   BLE.addService(*this->Battery_Service);
