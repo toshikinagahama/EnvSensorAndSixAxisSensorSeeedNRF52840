@@ -25,6 +25,13 @@ MyBLE::~MyBLE()
   delete this->SENSOR_Descriptor;
 }
 
+void MyBLE::BatteryCharaReadHandler(BLEDevice central, BLECharacteristic chara)
+{
+  // バッテリーチャラクタの読み取りハンドラ
+  uint8_t batteryLevel = batterySensor->getValue(); // 一旦。本当はイベントキューに入れないと。あんまりやりたくないけど、ここで直接取得
+  chara.writeValue(batteryLevel);
+}
+
 void MyBLE::SensorCharaWrittenHandler(BLEDevice central, BLECharacteristic chara)
 {
   // 受け取ったメッセージごとに処理
@@ -44,23 +51,27 @@ void MyBLE::SensorCharaWrittenHandler(BLEDevice central, BLECharacteristic chara
     {
     case 0x01:
       // 機器情報取得
-      INT.BIT.BLE_CMD_GET_DEVICE_INFO = 1;
+      enqueue(EVT_BLE_CMD_GET_DEVICE_INFO, NULL, 0);
       break;
     case 0x02:
       // タイムスタンプ取得
-      INT.BIT.BLE_CMD_GET_START_TIMESTAMP = 1;
+      enqueue(EVT_BLE_CMD_GET_START_TIMESTAMP, NULL, 0);
       break;
     case 0x03:
       // タイムスタンプ設定
       {
         uint8_t tmp[6];
         chara.readValue(tmp, 6); // 6バイトの値を読み込む
-        SYS.BLE_ARG[0] = tmp[2]; // 2バイト目
-        SYS.BLE_ARG[1] = tmp[3]; // 3バイト目
-        SYS.BLE_ARG[2] = tmp[4]; // 4バイト目
-        SYS.BLE_ARG[3] = tmp[5]; // 5バイト目
-        INT.BIT.BLE_CMD_SET_START_TIMESTAMP = 1;
+        enqueue(EVT_BLE_CMD_SET_START_TIMESTAMP, &tmp[2], 6);
       }
+      break;
+    case 0x04:
+      // 現在のタイムスタンプ取得
+      enqueue(EVT_BLE_CMD_GET_TIMESTAMP, NULL, 0);
+      break;
+    case 0x05:
+      // 現在のデータページNO取得
+      enqueue(EVT_BLE_CMD_GET_DATA_PAGE_NO, NULL, 0);
       break;
     default:
       break;
@@ -72,11 +83,11 @@ void MyBLE::SensorCharaWrittenHandler(BLEDevice central, BLECharacteristic chara
     {
     case 0x00:
       // 測定開始
-      INT.BIT.BLE_CMD_MEAS_START = 1;
+      enqueue(EVT_BLE_CMD_MEAS_START, NULL, 0);
       break;
     case 0x01:
       // 測定終了
-      INT.BIT.BLE_CMD_MEAS_STOP = 1;
+      enqueue(EVT_BLE_CMD_MEAS_STOP, NULL, 0);
       break;
     default:
       break;
@@ -89,12 +100,15 @@ void MyBLE::SensorCharaWrittenHandler(BLEDevice central, BLECharacteristic chara
     case 0x00:
       // 1バイトデータ取得
       {
-        INT.BIT.BLE_CMD_GET_DATA_1_BYTE = 1;
         uint8_t tmp[5];
         chara.readValue(tmp, 5); // 7バイトの値を読み込む（3byte目はページ番号、4~5byte目はデータ番号）
-        SYS.BLE_ARG[0] = tmp[2]; // ページ番号
-        SYS.BLE_ARG[1] = tmp[3]; // データ番号
-        SYS.BLE_ARG[2] = tmp[4]; // データ番号
+        enqueue(EVT_BLE_CMD_GET_DATA_1_DATA, &tmp[2], 3);
+      }
+      break;
+    case 0x01:
+      // 最新のデータ取得
+      {
+        enqueue(EVT_BLE_CMD_GET_LATEST_DATA, NULL, 0);
       }
       break;
     default:
@@ -116,14 +130,14 @@ void MyBLE::blePeripheralConnectHandler(BLEDevice central)
 
   Serial.print("Connected event, central: ");
   Serial.println(central.address());
-  INT.BIT.BLE_CONNECTED = 1;
+  enqueue(EVT_BLE_CONNECTED, NULL, 0);
 }
 
 void MyBLE::blePeripheralDisconnectHandler(BLEDevice central)
 {
   Serial.print("Disconnected event, central: ");
   Serial.println(central.address());
-  INT.BIT.BLE_DISCONNECTED = 1;
+  enqueue(EVT_BLE_DISCONNECTED, NULL, 0);
 }
 
 void MyBLE::initialize()
@@ -135,6 +149,8 @@ void MyBLE::initialize()
     while (1)
       ;
   }
+  BLE.setConnectable(true); // 接続可能にする
+  BLE.setPairable(true);    // ペアリング可能にする
   BLE.setEventHandler(BLEConnected, this->blePeripheralConnectHandler);
   BLE.setEventHandler(BLEDisconnected, this->blePeripheralDisconnectHandler);
   BLE.setDeviceName(BLE_LOCAL_NAME);
@@ -147,6 +163,7 @@ void MyBLE::initialize()
   this->Battery_Service->addCharacteristic(*this->Battery_chara);  // add characteristic
   this->SENSOR_TX_Chara->addDescriptor(*this->SENSOR_Descriptor);  // add descriptor
   this->SENSOR_RX_Chara->addDescriptor(*this->SENSOR_Descriptor);  // add descriptor
+  this->Battery_chara->setEventHandler(BLERead, this->BatteryCharaReadHandler);
   this->SENSOR_TX_Chara->setEventHandler(BLERead, this->SensorCharaReadHandler);
   this->SENSOR_RX_Chara->setEventHandler(BLEWritten, this->SensorCharaWrittenHandler);
   BLE.addService(*this->Battery_Service);

@@ -1,17 +1,17 @@
-#include "BatterySensor.h"
+#include "MyBatterySensor.h"
 #include <nrf52840.h>
 #include <nrfx_saadc.h>
 
-void BatterySensor::initialize()
+void MyBatterySensor::initialize()
 {
-  analogReference(AR_VDD);  // VREF = 2.4V
+  analogReference(0);       // 0はAR_VDDで3.3V
   analogReadResolution(10); // 10bit A/D
   pinMode(this->PIN_WAKEUP, OUTPUT);
   digitalWrite(this->PIN_WAKEUP, LOW);
   // pinMode(this->PIN_READ, INPUT);
 }
 
-uint8_t BatterySensor::getValue()
+uint8_t MyBatterySensor::getValue()
 {
 
   const int max_voltage_mv = 3894; //

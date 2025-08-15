@@ -353,7 +353,7 @@ static void QSPI_Write(void *data, uint32_t AStartAddress, uint32_t Size)
   // }
 }
 
-static void MyFlashMemoryInitialize()
+static void flashmemory_initialize()
 {
   QSPI_Initialise();
   // QSPI_All_Erase();

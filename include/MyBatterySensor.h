@@ -1,8 +1,8 @@
-#ifndef BATTERYSENSOR_H
-#define BATTERYSENSOR_H
+#ifndef MYBATTERYSENSOR_H
+#define MYBATTERYSENSOR_H
 #include <Arduino.h>
 
-class BatterySensor
+class MyBatterySensor
 {
 
 private:
@@ -16,4 +16,4 @@ public:
   uint8_t getValue();
 };
 
-#endif // BATTERYSENSOR_H
+#endif // MYBATTERYSENSOR_H

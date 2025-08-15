@@ -4,7 +4,6 @@
 #include <Arduino.h>
 #include <ArduinoBLE.h>
 #include <nrf52840.h>
-#include "global.h"
 
 // マクロ定義
 #define BLE_SENSOR_SERVICE_UUID "4fafc202-1fb5-459e-8fcc-c5c9c331914b"  // BLE Service
@@ -43,6 +42,7 @@ public:
   void poll();
   void advertiseStart();
   void advertiseStop();
+  static void BatteryCharaReadHandler(BLEDevice central, BLECharacteristic chara);
   static void SensorCharaReadHandler(BLEDevice central, BLECharacteristic chara);
   static void SensorCharaWrittenHandler(BLEDevice central, BLECharacteristic chara);
   static void blePeripheralConnectHandler(BLEDevice central);

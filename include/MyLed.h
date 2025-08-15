@@ -1,11 +1,17 @@
-#ifndef LED_H
-#define LED_H
+#ifndef MYLED_H
+#define MYLED_H
 // インクルード
 #include <Arduino.h>
-#include <nrf52840.h>
-#include "global.h"
 
-class LED
+enum Color
+{
+  COLOR_RED,
+  COLOR_GREEN,
+  COLOR_BLUE,
+  COLOR_MAX,
+};
+
+class MyLed
 {
 
 private:
@@ -18,9 +24,10 @@ private:
 
 public:
   //  関数
-  LED();
-  ~LED();
+  MyLed();
+  ~MyLed();
   void initialize();
+  void blink(Color, uint16_t, uint16_t);
   void redBlink(uint16_t, uint16_t);
   void greenBlink(uint16_t, uint16_t);
   void blueBlink(uint16_t, uint16_t);
