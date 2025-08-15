@@ -44,22 +44,18 @@ void MyBLE::SensorCharaWrittenHandler(BLEDevice central, BLECharacteristic chara
     {
     case 0x01:
       // 機器情報取得
-      INT.BIT.BLE_CMD_GET_DEVICE_INFO = 1;
+      enqueue(EVT_BLE_CMD_GET_DEVICE_INFO, NULL, 0);
       break;
     case 0x02:
       // タイムスタンプ取得
-      INT.BIT.BLE_CMD_GET_START_TIMESTAMP = 1;
+      enqueue(EVT_BLE_CMD_GET_START_TIMESTAMP, NULL, 0);
       break;
     case 0x03:
       // タイムスタンプ設定
       {
         uint8_t tmp[6];
         chara.readValue(tmp, 6); // 6バイトの値を読み込む
-        SYS.BLE_ARG[0] = tmp[2]; // 2バイト目
-        SYS.BLE_ARG[1] = tmp[3]; // 3バイト目
-        SYS.BLE_ARG[2] = tmp[4]; // 4バイト目
-        SYS.BLE_ARG[3] = tmp[5]; // 5バイト目
-        INT.BIT.BLE_CMD_SET_START_TIMESTAMP = 1;
+        enqueue(EVT_BLE_CMD_SET_START_TIMESTAMP, &tmp[2], 6);
       }
       break;
     default:
@@ -72,11 +68,11 @@ void MyBLE::SensorCharaWrittenHandler(BLEDevice central, BLECharacteristic chara
     {
     case 0x00:
       // 測定開始
-      INT.BIT.BLE_CMD_MEAS_START = 1;
+      enqueue(EVT_BLE_CMD_MEAS_START, NULL, 0);
       break;
     case 0x01:
       // 測定終了
-      INT.BIT.BLE_CMD_MEAS_STOP = 1;
+      enqueue(EVT_BLE_CMD_MEAS_STOP, NULL, 0);
       break;
     default:
       break;
@@ -89,12 +85,9 @@ void MyBLE::SensorCharaWrittenHandler(BLEDevice central, BLECharacteristic chara
     case 0x00:
       // 1バイトデータ取得
       {
-        INT.BIT.BLE_CMD_GET_DATA_1_BYTE = 1;
         uint8_t tmp[5];
         chara.readValue(tmp, 5); // 7バイトの値を読み込む（3byte目はページ番号、4~5byte目はデータ番号）
-        SYS.BLE_ARG[0] = tmp[2]; // ページ番号
-        SYS.BLE_ARG[1] = tmp[3]; // データ番号
-        SYS.BLE_ARG[2] = tmp[4]; // データ番号
+        enqueue(EVT_BLE_CMD_GET_DATA_1_BYTE, &tmp[2], 3);
       }
       break;
     default:
@@ -116,14 +109,14 @@ void MyBLE::blePeripheralConnectHandler(BLEDevice central)
 
   Serial.print("Connected event, central: ");
   Serial.println(central.address());
-  INT.BIT.BLE_CONNECTED = 1;
+  enqueue(EVT_BLE_CONNECTED, NULL, 0);
 }
 
 void MyBLE::blePeripheralDisconnectHandler(BLEDevice central)
 {
   Serial.print("Disconnected event, central: ");
   Serial.println(central.address());
-  INT.BIT.BLE_DISCONNECTED = 1;
+  enqueue(EVT_BLE_DISCONNECTED, NULL, 0);
 }
 
 void MyBLE::initialize()

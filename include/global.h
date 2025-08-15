@@ -14,49 +14,31 @@
 #define ADDRESS_DATA_PAGE_3 12288 + (2 * 3 * 64 * 1024) // データページ3の先頭アドレス
 #define ADDRESS_DATA_PAGE_4 12288 + (3 * 3 * 64 * 1024) // データページ4の先頭アドレス
 #define ADDRESS_DATA_PAGE_5 12288 + (4 * 3 * 64 * 1024) // データページ5の先頭アドレス
+//
+#define QUEUE_SIZE 10
 
 #include <Arduino.h>
-
-/**
- * @brief 割り込みビット
- *
- */
-struct INT_BIT_T
-{
-  uint8_t BLE_CONNECTED = 0;               // BLE端末と接続
-  uint8_t BLE_DISCONNECTED = 0;            // BLE端末と切断
-  uint8_t BLE_CMD_MEAS_START = 0;          // 測定開始コマンド
-  uint8_t BLE_CMD_MEAS_STOP = 0;           // 測定終了コマンド
-  uint8_t BLE_CMD_GET_DATA_1_BYTE = 0;     // 1バイトデータ取得コマンド
-  uint8_t BLE_CMD_GET_DEVICE_INFO = 0;     // 機器情報取得コマンド
-  uint8_t BLE_CMD_GET_START_TIMESTAMP = 0; // スタートタイムスタンプ取得コマンド
-  uint8_t BLE_CMD_SET_START_TIMESTAMP = 0; // スタートタイムスタンプ設定コマンド
-  uint8_t BUTTON_A_SHORT_PRESSED = 0;      // ボタンA単押し
-  uint8_t BUTTON_A_LONG_PRESSED = 0;       // ボタンA長押し
-};
-
-/**
- * @brief 割り込み構造体
- *
- */
-struct INT_T
-{
-  struct INT_BIT_T BIT; // ビットフィールド
-};
-
-/**
- * @brief システム構造体
- *
- */
-struct SYS_T
-{
-  String DEVICE_SERIAL_NUM = "";
-  String DEVICE_VERSION = "";
-  uint8_t BLE_ARG[64] = {0}; // BLEコマンドの引数（最大64文字）
-};
+#include "MyEvent.h"
+#include "MyState.h"
+#include "MyBLE.h"
+#include "MySensor.h"
+#include "MyEnvSensor.h"
+#include "MyBatterySensor.h"
+#include "MyLed.h"
+#include "MySys.h"
 
 // 外部宣言
-extern INT_T INT;
-extern SYS_T SYS;
+// メンバ
+extern MyBLE *ble;
+extern MySensor *sensor;
+extern MyEnvSensor *envSensor;
+extern MyBatterySensor *batterySensor;
+extern MyLed *led;
+extern BLEDevice central;
+extern MySys *sys;
+extern uint32_t CNT;
+// 関数
+extern void enqueue(MyEventID id, const uint8_t *payload, size_t length);
+extern MyEvent dequeue();
 
 #endif // GLOBAL_H

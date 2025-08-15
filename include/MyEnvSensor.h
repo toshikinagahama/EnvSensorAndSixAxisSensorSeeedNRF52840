@@ -6,7 +6,6 @@
 #include <Wire.h>
 #include "Adafruit_Sensor.h"
 #include "Adafruit_BMP280.h"
-#include "global.h"
 
 class MyEnvSensor
 {

@@ -4,7 +4,6 @@
 #include <Arduino.h>
 #include <ArduinoBLE.h>
 #include <nrf52840.h>
-#include "global.h"
 
 // マクロ定義
 #define BLE_SENSOR_SERVICE_UUID "4fafc202-1fb5-459e-8fcc-c5c9c331914b"  // BLE Service

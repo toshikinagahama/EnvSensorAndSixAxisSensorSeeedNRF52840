@@ -1,4 +1,4 @@
-#include "button.h"
+#include "MyButton.h"
 #include <Arduino.h>
 #include <nrf52840.h>
 #include "global.h"
@@ -16,6 +16,26 @@ void button_initialize()
 {
   pinMode(PIN_BUTTON_A, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(PIN_BUTTON_A), buttonA_ISR, CHANGE);
+}
+
+/**
+ * @brief ボタンの更新関数
+ *
+ */
+void button_update()
+{
+  // アップデート
+  if (buttonA_short_press_detected == true)
+  {
+    buttonA_short_press_detected = false;
+    enqueue(EVT_BUTTON_A_SHORT_PRESSED, NULL, 0);
+  }
+
+  if (buttonA_long_press_detected == true)
+  {
+    buttonA_long_press_detected = false;
+    enqueue(EVT_BUTTON_A_LONG_PRESSED, NULL, 0);
+  }
 }
 
 /**
@@ -37,10 +57,14 @@ void buttonA_ISR()
     {
       unsigned long duration = millis() - buttonA_press_time;
       if (duration >= LONG_PRESS_THRESHOLD_MS)
+      {
         // 閾値を超えていたら長押しと判断
-        INT.BIT.BUTTON_A_LONG_PRESSED = 1;
+        buttonA_long_press_detected = true;
+      }
       else
-        INT.BIT.BUTTON_A_SHORT_PRESSED = 1;
+      {
+        buttonA_short_press_detected = true;
+      }
       buttonA_pressed = false; // フラグをリセット
     }
   }

@@ -5,7 +5,6 @@
 #include <nrf52840.h>
 #include "LSM6DS3.h"
 #include "Wire.h"
-#include "global.h"
 
 class MySensor
 {
