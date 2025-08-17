@@ -31,8 +31,12 @@ static const uint8_t DEFAULT_PAYLOAD[1] = {0x00};
 // キューにイベントを追加
 void enqueue(MyEventID id, const uint8_t *payload, size_t length)
 {
-  // Serial.print("Enqueue event: ");
-  // Serial.println(id);
+
+  if (id != 15)
+  {
+    Serial.print("Enqueue event: ");
+    Serial.println(id);
+  }
   if (count < QUEUE_SIZE)
   {
     MyEvent event;
