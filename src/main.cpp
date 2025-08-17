@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <nrfx_gpiote.h>
 #include <nrf52840.h>
 #include "global.h"
 #include "MyTimer.h"
@@ -94,6 +95,7 @@ void setup()
   sys->initialize(); // システムの初期化
   batterySensor->initialize();
   led->initialize();
+  NRF_POWER->RESETREAS = NRF_POWER->RESETREAS;
   button_initialize(); // ボタンはクラスにしたかったが、割り込み関数は静的じゃないといけないので、関数化してる。initializeで割り込みしてる
   ble->initialize();
   ble->advertiseStart();

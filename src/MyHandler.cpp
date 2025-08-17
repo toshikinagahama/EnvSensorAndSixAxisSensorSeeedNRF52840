@@ -1,5 +1,6 @@
 #include "MyHandler.h"
 #include "MyFlashMemory.h"
+#include <nrf_power.h>
 
 ulong cnt = 0;
 ulong cnt_save = 0;              // 保存用カウンタ
@@ -246,40 +247,39 @@ MyState handler_wait_cmd_get_data_1_data(void *payload)
     led->setLEDRGB(true, false, false);
     delay(10);
     led->setLEDRGB(false, true, false);
-    uint8_t pBuf[24] = {0};
+    uint8_t pBuf[28] = {0};
     uint8_t *pPayload = (uint8_t *)payload;
     // ページ番号を取得
     uint8_t pageNo = pPayload[0];                       // pPayloadの最初の1バイトがページ番号
     uint16_t dataNo = pPayload[1] | (pPayload[2] << 8); // データ番号を取得
     if (pageNo == 0)
     {
-      // 本当は20だけでもいいがなぜか24byteでないと読み込めない
-      nrfx_qspi_read(pBuf, 24, ADDRESS_DATA_PAGE_1 + dataNo * 20);
+      nrfx_qspi_read(pBuf, 28, ADDRESS_DATA_PAGE_1 + dataNo * NUM_DATA_SIZE);
     }
     else if (pageNo == 1)
     {
-      nrfx_qspi_read(pBuf, 24, ADDRESS_DATA_PAGE_2 + dataNo * 20);
+      nrfx_qspi_read(pBuf, 28, ADDRESS_DATA_PAGE_2 + dataNo * NUM_DATA_SIZE);
     }
     else if (pageNo == 2)
     {
-      nrfx_qspi_read(pBuf, 24, ADDRESS_DATA_PAGE_3 + dataNo * 20);
+      nrfx_qspi_read(pBuf, 28, ADDRESS_DATA_PAGE_3 + dataNo * NUM_DATA_SIZE);
     }
     else if (pageNo == 3)
     {
-      nrfx_qspi_read(pBuf, 24, ADDRESS_DATA_PAGE_4 + dataNo * 20);
+      nrfx_qspi_read(pBuf, 28, ADDRESS_DATA_PAGE_4 + dataNo * NUM_DATA_SIZE);
     }
     else if (pageNo == 4)
     {
-      nrfx_qspi_read(pBuf, 24, ADDRESS_DATA_PAGE_5 + dataNo * 20);
+      nrfx_qspi_read(pBuf, 28, ADDRESS_DATA_PAGE_5 + dataNo * NUM_DATA_SIZE);
     }
-    uint8_t val[25];                          // 識別番号2byte + ページ番号1byte + データ番号2byte + データ20byte
+    uint8_t val[33];                          // 識別番号2byte + ページ番号1byte + データ番号2byte + データ20byte
     val[0] = 0x82;                            // 識別子1
     val[1] = 0x00;                            // 識別子2
     val[2] = pageNo;                          // ページ番号
     val[3] = (uint8_t)(dataNo & 0xff);        // データ番号
     val[4] = (uint8_t)((dataNo >> 8) & 0xff); // データ番号
-    memcpy(&val[5], pBuf, 20);
-    ble->SENSOR_TX_Chara->writeValue(val, 25); // 25バイトの値を送信
+    memcpy(&val[5], pBuf, NUM_DATA_SIZE);
+    ble->SENSOR_TX_Chara->writeValue(val, 33); // 33バイトの値を送信
   }
   return STATE_WAIT;
 }
@@ -376,8 +376,15 @@ MyState handler_wait_button_a_short_pressed(void *payload)
   return STATE_WAIT;
 }
 
-MyState handler_wait_button_a_long_pressed(void *payload)
+MyState handler_wait_button_a_long1_pressed(void *payload)
 {
+  return STATE_WAIT;
+}
+
+MyState handler_wait_button_a_long2_pressed(void *payload)
+{
+  // deepsleepモードへ移行
+  NRF_POWER->SYSTEMOFF = 1;
   return STATE_WAIT;
 }
 
@@ -393,6 +400,9 @@ MyState handler_wait_timer2_timeout(void *payload)
 
 MyState handler_wait_timer3_timeout(void *payload)
 {
+  delay(100);
+  // System OFFに移行するためのGPIO検出設定
+  NRF_POWER->SYSTEMOFF = 1;
   return STATE_WAIT;
 }
 
@@ -510,8 +520,16 @@ MyState handler_meas_button_a_short_pressed(void *payload)
   return STATE_MEAS;
 }
 
-MyState handler_meas_button_a_long_pressed(void *payload)
+MyState handler_meas_button_a_long1_pressed(void *payload)
 {
+  // 測定終了
+  stop_meas();
+  return STATE_WAIT;
+}
+
+MyState handler_meas_button_a_long2_pressed(void *payload)
+{
+  // waitoじゃないとなにもしない
   return STATE_MEAS;
 }
 
@@ -585,7 +603,8 @@ EventHandler state_transition_table[STATE_MAX][EVT_MAX] = {
         handler_wait_cmd_get_timestamp,       // EVT_BLE_CMD_GET_TIMESTAMP
         handler_wait_cmd_get_data_page_no,    // EVT_BLE_CMD_GET_DATA_PAGE_NO
         handler_wait_button_a_short_pressed,  // EVT_BUTTON_A_SHORT_PRESSED
-        handler_wait_button_a_long_pressed,   // EVT_BUTTON_A_LONG_PRESSED
+        handler_wait_button_a_long1_pressed,  // EVT_BUTTON_A_LONG1_PRESSED
+        handler_wait_button_a_long2_pressed,  // EVT_BUTTON_A_LONG2_PRESSED
         handler_wait_timer1_timeout,          // EVT_TIMER1_TIMEOUT
         handler_wait_timer2_timeout,          // EVT_TIMER2_TIMEOUT
     },
@@ -605,7 +624,8 @@ EventHandler state_transition_table[STATE_MAX][EVT_MAX] = {
         handler_meas_cmd_get_timestamp,       // EVT_BLE_CMD_GET_TIMESTAMP
         handler_meas_cmd_get_data_page_no,    // EVT_BLE_CMD_GET_DATA_PAGE_NO
         handler_meas_button_a_short_pressed,  // EVT_BUTTON_A_SHORT_PRESSED
-        handler_meas_button_a_long_pressed,   // EVT_BUTTON_A_LONG_PRESSED
+        handler_meas_button_a_long1_pressed,  // EVT_BUTTON_A_LONG1_PRESSED
+        handler_meas_button_a_long2_pressed,  // EVT_BUTTON_A_LONG2_PRESSED
         handler_meas_timer1_timeout,          // EVT_TIMER1_TIMEOUT
         handler_meas_timer2_timeout,          // EVT_TIMER2_TIMEOUT
     }};

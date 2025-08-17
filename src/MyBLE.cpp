@@ -6,7 +6,7 @@ MyBLE::MyBLE()
   // コンストラクタ
   this->SENSOR_Service = new BLEService(BLE_SENSOR_SERVICE_UUID);
   this->Battery_Service = new BLEService(BLE_BATTERY_SERVICE_UUID);
-  this->SENSOR_TX_Chara = new BLECharacteristic(BLE_SENSOR_TX_CHARA_UUID, BLENotify, 25);
+  this->SENSOR_TX_Chara = new BLECharacteristic(BLE_SENSOR_TX_CHARA_UUID, BLENotify, 33);
   this->SENSOR_RX_Chara = new BLECharacteristic(BLE_SENSOR_RX_CHARA_UUID, BLEWrite, 7);
   this->Battery_chara = new BLEIntCharacteristic(BLE_BATTERY_CHARA_UUID, BLERead | BLENotify);
   this->SENSOR_Descriptor = new BLEDescriptor(BLE_DESCRIPTOR_UUID, "SENSOR");

@@ -25,9 +25,10 @@ enum MyEventID
   EVT_BLE_CMD_GET_TIMESTAMP,    // 現在のタイムスタンプを取得するコマンド
   EVT_BLE_CMD_GET_DATA_PAGE_NO, // 現在のデータページNOを取得するコマンド
   EVT_BUTTON_A_SHORT_PRESSED,
-  EVT_BUTTON_A_LONG_PRESSED,
-  EVT_TIMER1_TIMEOUT, // タイマー1のタイムアウトイベント
-  EVT_TIMER2_TIMEOUT, // タイマー2のタイムアウトイベント
+  EVT_BUTTON_A_LONG1_PRESSED, // 長押し1のイベント
+  EVT_BUTTON_A_LONG2_PRESSED, // 長押し2のイベント（deepsleepモード用）
+  EVT_TIMER1_TIMEOUT,         // タイマー1のタイムアウトイベント
+  EVT_TIMER2_TIMEOUT,         // タイマー2のタイムアウトイベント
   EVT_MAX,
 };
 
