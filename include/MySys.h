@@ -8,10 +8,13 @@ class MySys
 
 public:
   // メンバ
-  uint8_t version[3] = {0x01, 0x00, 0x00}; // バージョン情報
+  uint8_t version[3] = {0x00, 0x00, 0x00}; // バージョン情報
   uint32_t timestamp = 0;                  // タイムスタンプ
   uint32_t time_from_get_timstamp = 0;     // タイムスタンプ
-  bool is_set_timestamp = false;           // タイムスタンプが設定されているかどうか
+  uint8_t data_page_no = 0;                // データページ番号
+  ulong cnt = 0;
+  ulong cnt_save = 0;            // 保存用カウンタ
+  bool is_set_timestamp = false; // タイムスタンプが設定されているかどうか
 
   //  関数
   MySys();

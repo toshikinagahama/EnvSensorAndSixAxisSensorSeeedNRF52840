@@ -10,6 +10,8 @@ NRF52_MBED_Timer ITimer2(NRF_TIMER_4);
 
 bool timer1_flg = false;
 bool timer2_flg = false;
+bool timer3_flg = false;
+uint16_t timer1_count = 0;
 
 /**
  * @brief 初期化関数
@@ -39,12 +41,24 @@ void timer_update()
     timer2_flg = false;
     enqueue(EVT_TIMER2_TIMEOUT, NULL, 0);
   }
+
+  if (timer3_flg == true)
+  {
+    timer3_flg = false;
+    enqueue(EVT_TIMER3_TIMEOUT, NULL, 0);
+  }
 }
 
 void TimerHandler1()
 {
   timer1_flg = true;
-  // enqueue(EVT_TIMER1_TIMEOUT, NULL, 0); これだと、なぜかハングアップしてしまうので、違うやり方でやる。
+  timer1_count++;
+  if (timer1_count >= 10) // 1秒ごとにタイマー3のイベントを発生させる
+  {
+    timer1_count = 0;
+    timer3_flg = true;
+    // enqueue(EVT_TIMER1_TIMEOUT, NULL, 0); これだと、なぜかハングアップしてしまうので、違うやり方でやる。
+  }
 }
 
 void TimerHandler2()

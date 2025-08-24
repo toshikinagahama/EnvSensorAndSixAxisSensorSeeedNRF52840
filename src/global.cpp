@@ -25,6 +25,7 @@ MySensor *sensor = new MySensor();
 MyEnvSensor *envSensor = new MyEnvSensor();
 MyBatterySensor *batterySensor = new MyBatterySensor();
 MyLed *led = new MyLed();
+MyDisplay *display = new MyDisplay(); // ディスプレイ
 BLEDevice central;
 static const uint8_t DEFAULT_PAYLOAD[1] = {0x00};
 

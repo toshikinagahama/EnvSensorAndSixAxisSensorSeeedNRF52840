@@ -12,6 +12,8 @@ private:
 public:
   float raw_vol = 0.0;
   uint8_t level = 0;
+  uint8_t levels[1000] = {0}; // バッテリーレベルの履歴
+  uint16_t cnt = 0;
   void initialize();
   uint8_t getValue();
 };

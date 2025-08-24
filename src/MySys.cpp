@@ -20,6 +20,9 @@ void MySys::initialize()
   this->timestamp = 0;
   this->time_from_get_timstamp = 0;
   this->is_set_timestamp = false;
+  this->data_page_no = 0;
+  this->cnt = 0;
+  this->cnt_save = 0; // 保存用カウンタ
   // タイムスタンプを取得していないので、タイムスタンプは
 }
 void MySys::setVersion(uint8_t major, uint8_t minor, uint8_t revision)

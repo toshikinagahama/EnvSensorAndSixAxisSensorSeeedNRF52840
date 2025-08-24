@@ -2,38 +2,35 @@
 #include "MyFlashMemory.h"
 #include <nrf_power.h>
 
-ulong cnt = 0;
-ulong cnt_save = 0;              // 保存用カウンタ
-uint8_t data_page_no = 0;        // データページ番号
 uint16_t acc_comp_sum[10] = {0}; // 0.5sの間に取得した加速度センサの値の合計
 //
 void init_meas()
 {
-  cnt = 0;
-  cnt_save = 0;
+  sys->cnt = 0;
+  sys->cnt_save = 0;
   for (uint8_t i = 0; i < 10; i++)
   {
     acc_comp_sum[i] = 0;
   }
   // 初期化したいが、関数使うと長さの指定ができないので、自分で書き込む
   uint32_t add = 0;
-  if (data_page_no == 0)
+  if (sys->data_page_no == 0)
   {
     add = ADDRESS_DATA_PAGE_1;
   }
-  else if (data_page_no == 1)
+  else if (sys->data_page_no == 1)
   {
     add = ADDRESS_DATA_PAGE_2;
   }
-  else if (data_page_no == 2)
+  else if (sys->data_page_no == 2)
   {
     add = ADDRESS_DATA_PAGE_3;
   }
-  else if (data_page_no == 3)
+  else if (sys->data_page_no == 3)
   {
     add = ADDRESS_DATA_PAGE_4;
   }
-  else if (data_page_no == 4)
+  else if (sys->data_page_no == 4)
   {
     add = ADDRESS_DATA_PAGE_5;
   }
@@ -47,7 +44,7 @@ void init_meas()
 void stop_meas()
 {
   // 測定終了
-  data_page_no = (data_page_no + 1) % 5;
+  sys->data_page_no = (sys->data_page_no + 1) % 5;
 }
 
 void saveToQSPI()
@@ -87,28 +84,28 @@ void saveToQSPI()
   val[26] = uint8_t(iTmpEnv >> 0);
   val[27] = uint8_t(iTmpEnv >> 8);
 
-  if (data_page_no == 0)
+  if (sys->data_page_no == 0)
   {
-    QSPI_Write(val, ADDRESS_DATA_PAGE_1 + cnt_save * NUM_DATA_SIZE, NUM_DATA_SIZE);
+    QSPI_Write(val, ADDRESS_DATA_PAGE_1 + sys->cnt_save * NUM_DATA_SIZE, NUM_DATA_SIZE);
   }
-  else if (data_page_no == 1)
+  else if (sys->data_page_no == 1)
   {
-    QSPI_Write(val, ADDRESS_DATA_PAGE_2 + cnt_save * NUM_DATA_SIZE, NUM_DATA_SIZE);
+    QSPI_Write(val, ADDRESS_DATA_PAGE_2 + sys->cnt_save * NUM_DATA_SIZE, NUM_DATA_SIZE);
   }
-  else if (data_page_no == 2)
+  else if (sys->data_page_no == 2)
   {
-    QSPI_Write(val, ADDRESS_DATA_PAGE_3 + cnt_save * NUM_DATA_SIZE, NUM_DATA_SIZE);
+    QSPI_Write(val, ADDRESS_DATA_PAGE_3 + sys->cnt_save * NUM_DATA_SIZE, NUM_DATA_SIZE);
   }
-  else if (data_page_no == 3)
+  else if (sys->data_page_no == 3)
   {
-    QSPI_Write(val, ADDRESS_DATA_PAGE_4 + cnt_save * NUM_DATA_SIZE, NUM_DATA_SIZE);
+    QSPI_Write(val, ADDRESS_DATA_PAGE_4 + sys->cnt_save * NUM_DATA_SIZE, NUM_DATA_SIZE);
   }
-  else if (data_page_no == 4)
+  else if (sys->data_page_no == 4)
   {
-    QSPI_Write(val, ADDRESS_DATA_PAGE_5 + cnt_save * NUM_DATA_SIZE, NUM_DATA_SIZE);
+    QSPI_Write(val, ADDRESS_DATA_PAGE_5 + sys->cnt_save * NUM_DATA_SIZE, NUM_DATA_SIZE);
   }
-  cnt_save++;
-  if (cnt_save >= 8640)
+  sys->cnt_save++;
+  if (sys->cnt_save >= 8640)
   {
     // 8640回保存したら、データページ番号を更新し、強制的に終了
     stop_meas();
@@ -124,10 +121,10 @@ void notify()
   // uint8_t val[22];
   // val[0] = 0x01; // 識別子1
   // val[1] = 0x01; // 識別子2
-  // val[2] = uint8_t(cnt >> 0);
-  // val[3] = uint8_t(cnt >> 8);
-  // val[4] = uint8_t(cnt >> 16);
-  // val[5] = uint8_t(cnt >> 24);
+  // val[2] = uint8_t(sys->cnt >> 0);
+  // val[3] = uint8_t(sys->cnt >> 8);
+  // val[4] = uint8_t(sys->cnt >> 16);
+  // val[5] = uint8_t(sys->cnt >> 24);
   // val[6] = uint8_t(uint8_t(sensor->IMU->settings.accelRange >> 0));
   // val[7] = uint8_t(uint8_t(sensor->IMU->settings.accelRange >> 8));
   // val[8] = uint8_t(uint8_t(sensor->IMU->settings.gyroRange >> 0));
@@ -343,7 +340,7 @@ MyState handler_wait_cmd_get_data_page_no(void *payload)
   uint8_t val[3];
   val[0] = 0x80;
   val[1] = 0x05;
-  val[2] = data_page_no;
+  val[2] = sys->data_page_no;
   ble->SENSOR_TX_Chara->writeValue(val, 3);
   return STATE_WAIT;
 }
@@ -395,14 +392,14 @@ MyState handler_wait_timer1_timeout(void *payload)
 
 MyState handler_wait_timer2_timeout(void *payload)
 {
+
   return STATE_WAIT;
 }
 
 MyState handler_wait_timer3_timeout(void *payload)
 {
-  delay(100);
-  // System OFFに移行するためのGPIO検出設定
-  NRF_POWER->SYSTEMOFF = 1;
+  envSensor->getValue();
+  display->update();
   return STATE_WAIT;
 }
 
@@ -510,7 +507,7 @@ MyState handler_meas_cmd_get_data_page_no(void *payload)
   uint8_t val[3];
   val[0] = 0x80;
   val[1] = 0x05;
-  val[2] = data_page_no;
+  val[2] = sys->data_page_no;
   ble->SENSOR_TX_Chara->writeValue(val, 3);
   return STATE_MEAS;
 }
@@ -549,22 +546,22 @@ MyState handler_meas_timer1_timeout(void *payload)
   // Serial.print(",");
   // Serial.print(sensor->acc_z);
   // Serial.println();
-  acc_comp_sum[(cnt / 5) % 10] += (uint16_t)(sensor->acc_comp * 1000); // 0.5sの間に取得した加速度センサの値の合計
+  acc_comp_sum[(sys->cnt / 5) % 10] += (uint16_t)(sensor->acc_comp * 1000); // 0.5sの間に取得した加速度センサの値の合計
   // Serial.print((uint16_t)(sensor->acc_comp * 1000));
   // Serial.println();
   //  ulong time_e_last = 0;
   //  acc_x_sum += abs(sensor->acc_x);
   //  acc_y_sum += abs(sensor->acc_y);
   //  acc_z_sum += abs(sensor->acc_z);
-  cnt++;
+  sys->cnt++;
   return STATE_MEAS;
 }
 
 MyState handler_meas_timer2_timeout(void *payload)
 {
   envSensor->getValue();
-  Serial.print("cnt : ");
-  Serial.println(cnt);
+  Serial.print("sys->cnt : ");
+  Serial.println(sys->cnt);
   uint32_t now = sys->timestamp + (millis() - sys->time_from_get_timstamp) / 1000; // タイムスタンプ + タイムスタンプ取得からの経過時間
   Serial.print("now : ");
   Serial.println(now);
@@ -579,6 +576,12 @@ MyState handler_meas_timer2_timeout(void *payload)
   {
     acc_comp_sum[i] = 0;
   }
+  return STATE_MEAS;
+}
+
+MyState handler_meas_timer3_timeout(void *payload)
+{
+  display->update();
   return STATE_MEAS;
 }
 
@@ -601,12 +604,13 @@ EventHandler state_transition_table[STATE_MAX][EVT_MAX] = {
         handler_wait_cmd_get_data_1_data,     // EVT_BLE_CMD_GET_DATA_1_DATA
         handler_wait_cmd_get_latest_data,     // EVT_BLE_CMD_GET_LATEST_DATA
         handler_wait_cmd_get_timestamp,       // EVT_BLE_CMD_GET_TIMESTAMP
-        handler_wait_cmd_get_data_page_no,    // EVT_BLE_CMD_GET_DATA_PAGE_NO
+        handler_wait_cmd_get_data_page_no,    // EVT_BLE_CMD_GET_sys->data_page_no
         handler_wait_button_a_short_pressed,  // EVT_BUTTON_A_SHORT_PRESSED
         handler_wait_button_a_long1_pressed,  // EVT_BUTTON_A_LONG1_PRESSED
         handler_wait_button_a_long2_pressed,  // EVT_BUTTON_A_LONG2_PRESSED
         handler_wait_timer1_timeout,          // EVT_TIMER1_TIMEOUT
         handler_wait_timer2_timeout,          // EVT_TIMER2_TIMEOUT
+        handler_wait_timer3_timeout,          // EVT_TIMER3_TIMEOUT
     },
 
     // MEAS_STATE
@@ -622,10 +626,11 @@ EventHandler state_transition_table[STATE_MAX][EVT_MAX] = {
         handler_meas_cmd_get_data_1_data,     // EVT_BLE_CMD_GET_DATA_1_DATA
         handler_meas_cmd_get_latest_data,     // EVT_BLE_CMD_GET_LATEST_DATA
         handler_meas_cmd_get_timestamp,       // EVT_BLE_CMD_GET_TIMESTAMP
-        handler_meas_cmd_get_data_page_no,    // EVT_BLE_CMD_GET_DATA_PAGE_NO
+        handler_meas_cmd_get_data_page_no,    // EVT_BLE_CMD_GET_sys->data_page_no
         handler_meas_button_a_short_pressed,  // EVT_BUTTON_A_SHORT_PRESSED
         handler_meas_button_a_long1_pressed,  // EVT_BUTTON_A_LONG1_PRESSED
         handler_meas_button_a_long2_pressed,  // EVT_BUTTON_A_LONG2_PRESSED
         handler_meas_timer1_timeout,          // EVT_TIMER1_TIMEOUT
         handler_meas_timer2_timeout,          // EVT_TIMER2_TIMEOUT
+        handler_meas_timer3_timeout,          // EVT_TIMER3_TIMEOUT
     }};

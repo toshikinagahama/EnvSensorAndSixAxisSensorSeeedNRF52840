@@ -27,6 +27,7 @@
 #include "MyBatterySensor.h"
 #include "MyLed.h"
 #include "MySys.h"
+#include "MyDisplay.h"
 
 // 外部宣言
 // メンバ
@@ -35,6 +36,7 @@ extern MySensor *sensor;
 extern MyEnvSensor *envSensor;
 extern MyBatterySensor *batterySensor;
 extern MyLed *led;
+extern MyDisplay *display;
 extern BLEDevice central;
 extern MySys *sys;
 extern uint32_t CNT;

@@ -9,6 +9,19 @@ void MyBatterySensor::initialize()
   pinMode(this->PIN_WAKEUP, OUTPUT);
   digitalWrite(this->PIN_WAKEUP, LOW);
   // pinMode(this->PIN_READ, INPUT);
+  const int max_voltage_mv = 3894; //
+  const int min_voltage_mv = 3000; //
+
+  int vbat_raw = analogRead(PIN_VBAT);
+  int vbat_mv = vbat_raw * 3300 / 1023; // VREF = 2.4V, 10bit A/D
+  uint16_t volt = (uint16_t)(vbat_mv * 1.18);
+  int battery_percent = (int)((float)(volt - min_voltage_mv) / (float)(max_voltage_mv - min_voltage_mv) * 100.0f);
+  if (battery_percent > 100)
+    battery_percent = 100;
+  if (battery_percent < 1)
+    battery_percent = 1;
+  for (uint16_t i = 0; i < 1000; i++) // 履歴の平均を計算
+    levels[i] = battery_percent;      // 履歴に保存
 }
 
 uint8_t MyBatterySensor::getValue()
@@ -29,7 +42,17 @@ uint8_t MyBatterySensor::getValue()
     battery_percent = 100;
   if (battery_percent < 1)
     battery_percent = 1;
-  // Serial.println(volt);
-  return battery_percent;
-  // return battery_percent;
+  levels[cnt] = battery_percent; // 履歴に保存
+  cnt++;
+  if (cnt >= 1000)
+    cnt = 0; // 履歴のカウンタをリセット
+  uint8_t res = 0;
+  float sum = 0.0;
+  for (uint16_t i = 0; i < 1000; i++) // 履歴の平均を計算
+  {
+    sum += levels[i];
+  }
+  res = (uint8_t)(sum / 1000.0f);
+  return res;
+  //  return battery_percent;
 }

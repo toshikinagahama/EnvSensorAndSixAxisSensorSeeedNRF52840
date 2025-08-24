@@ -29,6 +29,7 @@ enum MyEventID
   EVT_BUTTON_A_LONG2_PRESSED, // 長押し2のイベント（deepsleepモード用）
   EVT_TIMER1_TIMEOUT,         // タイマー1のタイムアウトイベント
   EVT_TIMER2_TIMEOUT,         // タイマー2のタイムアウトイベント
+  EVT_TIMER3_TIMEOUT,         // タイマー3（1秒）タイムアウトイベント
   EVT_MAX,
 };
 

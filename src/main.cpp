@@ -6,6 +6,7 @@
 #include "MyHandler.h"
 #include "MyButton.h"
 #include "MyFlashMemory.h"
+#include <Adafruit_SSD1306.h>
 
 MyState state;
 
@@ -105,6 +106,7 @@ void setup()
   timer_initialize();       // タイマーの初期化
   setVersion();
   getTimestamp();
+  display->initialize(); // ディスプレイの初期化
 
   state = STATE_WAIT;
 }
