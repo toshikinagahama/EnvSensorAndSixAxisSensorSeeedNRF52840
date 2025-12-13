@@ -10,6 +10,7 @@
     <script>
       var _oDevice;
       var _oCharaWrite;
+      var _oCharaBatt;
       var dataLog = []; // Parsed data history
       var _pollingInterval;
 
@@ -135,14 +136,14 @@
           // Connect to Battery Service (Optional)
           try {
             const battService = await server.getPrimaryService(0x180f);
-            const battChara = await battService.getCharacteristic(0x2a19);
-            battChara.addEventListener(
+            _oCharaBatt = await battService.getCharacteristic(0x2a19);
+            _oCharaBatt.addEventListener(
               "characteristicvaluechanged",
               onRecvBatteryData
             );
-            await battChara.startNotifications();
+            await _oCharaBatt.startNotifications();
             // Read initial value
-            const val = await battChara.readValue();
+            const val = await _oCharaBatt.readValue();
             updateBatteryUI(val.getUint8(0));
           } catch (e) {
             console.warn("Battery service not found or accessible", e);
@@ -171,6 +172,15 @@
              } catch(e) {
                console.error("Polling error", e);
              }
+          }
+          
+          if (_oCharaBatt) {
+            try {
+               const val = await _oCharaBatt.readValue();
+               updateBatteryUI(val.getUint8(0));
+            } catch(e) {
+               console.warn("Battery Polling Error", e);
+            }
           }
         }, 1000); // 1Hz
       }

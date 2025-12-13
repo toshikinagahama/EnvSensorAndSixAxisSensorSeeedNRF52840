@@ -58,9 +58,9 @@ MyState handler_wait_cmd_get_data_1_data(void *payload) {
     }
     uint8_t val[33]; // 識別番号2byte + ページ番号1byte + データ番号2byte +
                      // データ20byte
-    val[0] = 0x82;                            // 識別子1
-    val[1] = 0x00;                            // 識別子2
-    val[2] = pageNo;                          // ページ番号
+    val[0] = 0x82;   // 識別子1
+    val[1] = 0x00;   // 識別子2
+    val[2] = pageNo; // ページ番号
     val[3] = (uint8_t)(dataNo & 0xff);        // データ番号
     val[4] = (uint8_t)((dataNo >> 8) & 0xff); // データ番号
     memcpy(&val[5], pBuf, NUM_DATA_SIZE);
@@ -168,9 +168,25 @@ MyState handler_wait_button_a_long2_pressed(void *payload) {
   return STATE_WAIT;
 }
 
-MyState handler_wait_timer1_timeout(void *payload) { return STATE_WAIT; }
+MyState handler_wait_timer1_timeout(void *payload) {
+  // Clear buffer at start of 1s cycle
+  if (sys->cnt % 10 == 0) {
+    for (uint8_t i = 0; i < 10; i++) {
+      acc_comp_sum[i] = 0;
+    }
+  }
 
-MyState handler_wait_timer2_timeout(void *payload) { return STATE_WAIT; }
+  sensor->getValue();
+  // Accumulate
+  acc_comp_sum[sys->cnt % 10] += (uint16_t)(sensor->acc_comp * 1000);
+  sys->cnt++;
+  return STATE_WAIT;
+}
+
+MyState handler_wait_timer2_timeout(void *payload) {
+  // Timer2 is 5s, not used for WAIT logic anymore (aligned to Timer3)
+  return STATE_WAIT;
+}
 
 MyState handler_wait_timer3_timeout(void *payload) {
   envSensor->getValue();
