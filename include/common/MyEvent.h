@@ -1,17 +1,10 @@
 #ifndef MYEVENT_H
-
-#ifdef MYEVENT_H
-#define EXTERN extern
-#else
-#define EXTERN
-#endif
 #define MYEVENT_H
 
 #include <Arduino.h>
 #define PAYLOAD_SIZE 64
 
-enum MyEventID
-{
+enum MyEventID {
   EVT_NOP,
   EVT_BLE_CONNECTED,
   EVT_BLE_DISCONNECTED,
@@ -34,8 +27,7 @@ enum MyEventID
 };
 
 // イベント情報を格納する構造体
-typedef struct
-{
+typedef struct {
   MyEventID id;                  // イベントID
   uint8_t payload[PAYLOAD_SIZE]; // ペイロード（最大64バイト）
   size_t length;                 // ペイロードの長さ

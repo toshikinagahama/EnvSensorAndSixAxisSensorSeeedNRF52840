@@ -1,274 +1,381 @@
 <!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <title>EnvSensor BLE Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
 
-<head lang="ja">
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <script src="https://cdn.tailwindcss.com"></script>
-  <title>BLEデバッグアプリ</title>
+    <script>
+      var _oDevice;
+      var _oCharaWrite;
+      var dataLog = []; // Parsed data history
+      var _pollingInterval;
 
-  <script>
-    var BluetoothDevice;
-    var _oDevice;
-    var _oServer;
-    var _oService;
-    var _oCharaRead;
-    var _oCharaWrite;
-    var _descriptor;
-    var _oVal;
-    var mode = 0;
+      var _chart; // Chart instance
 
-    var data = [];
-    var cnt = 0;
-    var cnt2 = 0;
-    var cnt_read = 0;
+      // UUID Constants
+      const DEVICE_SERVICE_UUID = "4fafc202-1fb5-459e-8fcc-c5c9c331914b";
+      const DEVICE_WRITE_CHARACTERISTIC_UUID =
+        "beb5483e-36e1-4688-b7f5-ea07361b26a8";
+      const DEVICE_READ_CHARACTERISTIC_UUID =
+        "beb5483f-36e1-4688-b7f5-ea07361b26a8";
 
-    //デバイスと接続時の認証用UUID、ペリフェラル側で設定したものと同じである必要がある。
-    const DEVICE_SERVICE_UUID = "4fafc202-1fb5-459e-8fcc-c5c9c331914b";
-    const DEVICE_WRITE_CHARACTERISTIC_UUID =
-      "beb5483e-36e1-4688-b7f5-ea07361b26a8";
-    const DEVICE_READ_CHARACTERISTIC_UUID =
-      "beb5483f-36e1-4688-b7f5-ea07361b26a8";
+      window.onload = function() {
+          initChart();
+      };
 
-    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+      function initChart() {
+        const ctx = document.getElementById('sensorChart').getContext('2d');
+        _chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    {
+                        label: 'Env Temp (℃)',
+                        borderColor: 'rgb(75, 192, 192)',
+                        yAxisID: 'y',
+                        data: []
+                    },
+                    {
+                        label: 'Obj Temp (℃)',
+                        borderColor: 'rgb(54, 162, 235)',
+                        yAxisID: 'y',
+                        data: []
+                    },
+                    {
+                        label: 'Acc Avg',
+                        borderColor: 'rgb(153, 102, 255)',
+                        yAxisID: 'y1',
+                        data: []
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                stacked: false,
+                scales: {
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        title: { display: true, text: 'Temperature (℃)' }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        grid: { drawOnChartArea: false },
+                        title: { display: true, text: 'Acceleration' }
+                    }
+                }
+            }
+        });
+      }
 
-    function connect() {
-      let options = {};
+      function updateChart(timeLabel, tmpEnv, tmpObj, accAvg) {
+          if (!_chart) return;
+          
+          _chart.data.labels.push(timeLabel);
+          _chart.data.datasets[0].data.push(tmpEnv);
+          _chart.data.datasets[1].data.push(tmpObj);
+          _chart.data.datasets[2].data.push(accAvg);
 
-      options.filters = [
-        //{ acceptAllDevices: true }, //コメントアウトを外すと周囲の全てのデバイスをスキャンする
-        { services: [0x180f, DEVICE_SERVICE_UUID] }, //スキャンするデバイスのUUIDを指定
-        //{ services: [0x180f, DEVICE_SERVICE_UUID] }, //スキャンするデバイスのUUIDを指定
-        { namePrefix: "HAMA" },
-      ];
-      //options.optionalService = ["0x180F", DEVICE_SERVICE_UUID];
-      //filterの条件で周囲のBLEデバイスをスキャン
-      navigator.bluetooth
-        .requestDevice(options)
-        .then((device) => {
-          //デバイス接続
-          console.log("device", device);
+          // Get Max Points from Selector
+          const maxSec = parseInt(document.getElementById("chart_window").value);
+          // Assuming 1Hz sampling
+          const maxPoints = maxSec; 
+
+          // Limit history
+          while (_chart.data.labels.length > maxPoints) {
+              _chart.data.labels.shift();
+              _chart.data.datasets[0].data.shift();
+              _chart.data.datasets[1].data.shift();
+              _chart.data.datasets[2].data.shift();
+          }
+          
+          // Optimization: Update without animation for large datasets if needed, 
+          // or throttle updates. For now, simple update.
+          _chart.update('none'); // 'none' mode prevents animation for better performance
+      }
+
+      async function connect() {
+        try {
+          const device = await navigator.bluetooth.requestDevice({
+            filters: [
+              { services: [DEVICE_SERVICE_UUID] },
+              { namePrefix: "HAMA" },
+            ],
+            optionalServices: [0x180f], // Battery Service
+          });
           _oDevice = device;
-          return _oDevice.gatt.connect();
-        })
-        .then((server) => {
-          //サーバー接続
-          console.log("server", server);
-          _oServer = server;
-          return Promise.all([
-            _oServer.getPrimaryService(DEVICE_SERVICE_UUID),
-            _oServer.getPrimaryService(0x180f),
-          ]);
-        })
-        .then((services) => {
-          //サービス接続
-          console.log("services:", services);
-          _oService = services[0];
-          const batteryService = services[1];
-          // バッテリーサービスの通知設定
-          batteryService
-            .getCharacteristic(0x2a19)
-            .then((characteristic) => {
-              characteristic.addEventListener(
-                "characteristicvaluechanged",
-                onRecvBatteryData
-              );
-              return characteristic.startNotifications();
-            })
-            .then(() => {
-              console.log("バッテリーレベルの通知設定成功");
-            })
-            .catch((error) => {
-              console.error("バッテリーレベル通知設定エラー: " + error);
-            });
-
-          return _oService.getCharacteristic(DEVICE_READ_CHARACTERISTIC_UUID);
-        })
-        .then((chara) => {
-          //READキャラクタリスティック接続
-          console.log("chara", chara);
-          _oCharaRead = chara;
-          _oCharaRead.addEventListener(
+          const server = await device.gatt.connect();
+          
+          // Connect to Custom Service
+          const service = await server.getPrimaryService(DEVICE_SERVICE_UUID);
+          const charaRead = await service.getCharacteristic(
+            DEVICE_READ_CHARACTERISTIC_UUID
+          );
+          charaRead.addEventListener(
             "characteristicvaluechanged",
             onRecvSensorData
           );
-          _oCharaRead.startNotifications();
-          console.log("READキャラクタ接続成功");
-          return _oService.getCharacteristic(DEVICE_WRITE_CHARACTERISTIC_UUID);
-        })
-        .then((chara) => {
-          //WRITEキャラクタリスティック接続
-          console.log("chara", chara);
-          _oCharaWrite = chara;
-          console.log("WRITEキャラクタ接続成功");
-          var elem = document.getElementById("status_text");
-          elem.innerText = "状態: 接続済";
-        })
-        .catch((error) => {
-          console.log(error);
-        });
-    }
+          await charaRead.startNotifications();
+          
+          _oCharaWrite = await service.getCharacteristic(
+            DEVICE_WRITE_CHARACTERISTIC_UUID
+          );
 
-    function onRecvBatteryData(event) {
-      const value = event.target.value;
-      const batteryLevel = value.getUint16(0, true);
-      const now = new Date();
-      const timeString = now.toLocaleTimeString(); // "15:30:45" のような形式で取得
-
-      console.log(timeString, " BATTERY_SERVICE:", batteryLevel);
-      //if(cnt2 % 30 == 0){
-      //  document.getElementById("response_history").value += `${timeString} ${batteryLevel}\n`;
-      //}
-      //console.log("BATTERY_SERVICE:", batteryLevel + "%");
-      cnt2++;
-    }
-
-    function onRecvSensorData(event) {
-      const value = event.target.value;
-      let array = new Uint8Array(value.buffer);
-      let array_hex = [];
-      for (let i = 0; i < array.length; i++) {
-        array_hex.push(toHex(array[i]));
-      }
-      console.log(array_hex);
-      document.getElementById("response_history").value += array_hex;
-      document.getElementById("response_history").value += "\n";
-      // 0x82,0x00応答かつ5,6,7,8byteが0xffなら読み出し完了
-      if (array.length >= 9 && array[0] === 0x82 && array[1] === 0x00) {
-        if (
-          array[5] === 0xff &&
-          array[6] === 0xff &&
-          array[7] === 0xff &&
-          array[8] === 0xff
-        ) {
-          cnt_read = 0;
-          return;
-        } else {
-          if (cnt_read >= 8640) {
-            cnt_read = 0;
-            return;
+          // Connect to Battery Service (Optional)
+          try {
+            const battService = await server.getPrimaryService(0x180f);
+            const battChara = await battService.getCharacteristic(0x2a19);
+            battChara.addEventListener(
+              "characteristicvaluechanged",
+              onRecvBatteryData
+            );
+            await battChara.startNotifications();
+            // Read initial value
+            const val = await battChara.readValue();
+            updateBatteryUI(val.getUint8(0));
+          } catch (e) {
+            console.warn("Battery service not found or accessible", e);
           }
-          cnt_read++;
-          const pageNum =
-            parseInt(document.getElementById("page_number").value, 10) & 0xff;
-          const cmd = new Uint8Array([
-            0x02,
-            0x00,
-            pageNum,
-            cnt_read & 0xff,
-            (cnt_read >> 8) & 0xff,
-          ]);
-          console.log("cmd:", cmd);
-          _oCharaWrite.writeValue(cmd);
+
+          document.getElementById("status_text").innerText = "状態: 接続完了 (データ取得中)";
+          document.getElementById("status_text").classList.add("text-green-600");
+          
+          // Start Polling
+          startPolling();
+          
+        } catch (error) {
+          console.error(error);
+          alert("接続に失敗しました: " + error);
         }
       }
-    }
 
-    function read_page() {
-      const pageNum =
-        parseInt(document.getElementById("page_number").value, 10) & 0xff;
-      // 0x02, 0x00, ページ番号, 0x00
-      document.getElementById("response_history").value +=
-        `ページ${pageNum} 読み出しコマンド送信\n`;
-      const cmd = new Uint8Array([0x02, 0x00, pageNum, 0x00, 0x00]);
-      console.log("cmd:", cmd);
-      _oCharaWrite.writeValue(cmd);
-    }
-
-    function getDevice() {}
-
-    function send_command() {
-      let data_send = document.getElementById("data_send").value; //データ取得
-      //intに変換
-      data_send = data_send.split(",");
-      for (let i = 0; i < data_send.length; i++) {
-        data_send[i] = parseInt(data_send[i], 16);
+      function startPolling() {
+        if (_pollingInterval) clearInterval(_pollingInterval);
+        _pollingInterval = setInterval(async () => {
+          if (_oCharaWrite) {
+             try {
+               // Command: Get Latest Data [0x02, 0x01]
+               const cmd = new Uint8Array([0x02, 0x01]);
+               await _oCharaWrite.writeValue(cmd);
+             } catch(e) {
+               console.error("Polling error", e);
+             }
+          }
+        }, 1000); // 1Hz
       }
-      data_send = new Uint8Array(data_send);
-      console.log(data_send);
-      _oCharaWrite.writeValue(data_send);
-    }
-    function updateTimestamp() {
-      const now = Math.floor(Date.now() / 1000); // UNIX秒
-      const arr = new Uint8Array([
-        now & 0xff,
-        (now >> 8) & 0xff,
-        (now >> 16) & 0xff,
-        (now >> 24) & 0xff,
-      ]);
-      const cmd = new Uint8Array([0x00, 0x03, arr[0], arr[1], arr[2], arr[3]]);
-      console.log("cmd:", cmd);
-      _oCharaWrite.writeValue(cmd);
-      //document.getElementById("response_history").value +=
-      //  `[${toHex(arr[0])}, ${toHex(arr[1])}, ${toHex([2])}, ${toHex(arr[3])}]\n`;
-    }
 
-    function toHex(v) {
-      return "0x" + ("00" + v.toString(16).toUpperCase()).substr(-2);
-    }
+      function onRecvBatteryData(event) {
+        const val = event.target.value.getUint8(0);
+        updateBatteryUI(val);
+      }
 
-    const init = () => {};
-  </script>
-</head>
+      function updateBatteryUI(level) {
+        document.getElementById("val_batt").innerText = level + " %";
+      }
 
-<body onload="init()">
-  <main class="w-screen h-screen px-4 py-6">
-    <div class="flex flex-row justify-start item-center">
-      <p class="mr-8 h-10 leading-10" id="status_text">状態: 未接続</p>
-      <button
-        class="outline outline-1 rounded-md px-4 py-2 text-white bg-gray-900"
-        onclick="connect()"
-      >
-        接続
-      </button>
+      function onRecvSensorData(event) {
+        const value = event.target.value;
+        const dataView = new DataView(value.buffer);
+        
+        // Check Header
+        if (dataView.getUint8(0) !== 0x82) return;
+        const type = dataView.getUint8(1);
+
+        // Type 0x01: Sensor Data (30 bytes)
+        // [Head(2), Time(4), AccSum(20), ObjTmp(2), EnvTmp(2)]
+        if (type === 0x01 && value.byteLength >= 30) {
+          const timestamp = dataView.getUint32(2, true);
+          
+          // Acc Data (10 x uint16)
+          let accSum = 0;
+          for(let i=0; i<10; i++) {
+             accSum += dataView.getUint16(6 + i*2, true);
+          }
+          const accAvg = accSum / 10.0; // Simple average for display
+
+          // Temperature (int16 / 100.0)
+          const tmpObj = dataView.getInt16(26, true) / 100.0;
+          const tmpEnv = dataView.getInt16(28, true) / 100.0;
+
+          // Check for error values (Absolute Zero approx -273.15)
+          const isError = (tmpEnv < -200.0 || tmpObj < -200.0);
+
+          if (!isError) {
+             const timeStr = new Date(timestamp * 1000).toLocaleTimeString();
+             // Update UI
+             document.getElementById("val_temp_env").innerText = tmpEnv.toFixed(2) + " ℃";
+             document.getElementById("val_temp_obj").innerText = tmpObj.toFixed(2) + " ℃";
+             document.getElementById("val_acc").innerText = accAvg.toFixed(2);
+             document.getElementById("val_time").innerText = timeStr;
+
+             // Update Chart
+             updateChart(timeStr, tmpEnv, tmpObj, accAvg);
+
+             // Log Data
+             const record = {
+                time: new Date(timestamp * 1000).toISOString(),
+                timestamp: timestamp,
+                tmpEnv: tmpEnv,
+                tmpObj: tmpObj,
+                accAvg: accAvg
+             };
+             dataLog.push(record);
+             addLogTable(record);
+          } else {
+             console.warn("Sensor Error Detect: ", tmpEnv, tmpObj);
+             // Optionally show Error in UI
+             document.getElementById("val_temp_env").innerText = "Error";
+             document.getElementById("val_temp_obj").innerText = "Error";
+          }
+        }
+      }
+
+      function addLogTable(record) {
+        const tbody = document.getElementById("log_tbody");
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td class="border px-2 py-1">${record.time}</td>
+          <td class="border px-2 py-1">${record.tmpEnv.toFixed(2)}</td>
+          <td class="border px-2 py-1">${record.tmpObj.toFixed(2)}</td>
+          <td class="border px-2 py-1">${record.accAvg.toFixed(2)}</td>
+        `;
+        tbody.prepend(row);
+        // Limit rows
+        if (tbody.children.length > 100) tbody.lastElementChild.remove();
+      }
+
+      async function updateTimestamp() {
+        if (!_oCharaWrite) return;
+        const now = Math.floor(Date.now() / 1000);
+        const buffer = new ArrayBuffer(6);
+        const view = new DataView(buffer);
+        view.setUint8(0, 0x00); // Command Header?
+        view.setUint8(1, 0x03); // Command ID for Set Timestamp? (Derived from previous code)
+        view.setUint32(2, now, true); // Little Endian
+        await _oCharaWrite.writeValue(buffer);
+        console.log("Timestamp updated sent:", now);
+      }
+
+      function exportCSV() {
+        if (dataLog.length === 0) {
+          alert("データがありません");
+          return;
+        }
+        let csv = "Time,Timestamp,EnvTemp,ObjTemp,AccAvg\n";
+        dataLog.forEach(row => {
+          csv += `${row.time},${row.timestamp},${row.tmpEnv},${row.tmpObj},${row.accAvg}\n`;
+        });
+        
+        const blob = new Blob([csv], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "sensor_data.csv";
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    </script>
+  </head>
+
+  <body class="bg-gray-100 text-gray-800 font-sans">
+    <div class="container mx-auto p-4 max-w-4xl">
+      <header class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold text-gray-900">EnvSensor Dashboard</h1>
+        <div class="flex items-center gap-4">
+          <span id="status_text" class="font-semibold text-gray-500">状態: 未接続</span>
+          <button onclick="connect()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow">
+            接続
+          </button>
+        </div>
+      </header>
+
+      <!-- Dashboard Cards -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <!-- Env Temp -->
+        <div class="bg-white p-4 rounded-lg shadow border-l-4 border-green-500">
+          <p class="text-sm text-gray-500">環境温度</p>
+          <p class="text-2xl font-bold" id="val_temp_env">-- ℃</p>
+        </div>
+        <!-- Obj Temp -->
+        <div class="bg-white p-4 rounded-lg shadow border-l-4 border-teal-500">
+          <p class="text-sm text-gray-500">対象温度</p>
+          <p class="text-2xl font-bold" id="val_temp_obj">-- ℃</p>
+        </div>
+        <!-- Acc -->
+        <div class="bg-white p-4 rounded-lg shadow border-l-4 border-indigo-500">
+          <p class="text-sm text-gray-500">加速度(Avg)</p>
+          <p class="text-2xl font-bold" id="val_acc">--</p>
+        </div>
+        <!-- Battery -->
+        <div class="bg-white p-4 rounded-lg shadow border-l-4 border-yellow-500">
+          <p class="text-sm text-gray-500">バッテリー</p>
+          <p class="text-2xl font-bold" id="val_batt">-- %</p>
+        </div>
+      </div>
+      
+      <div class="mb-2 text-right text-sm text-gray-500">
+        最終更新: <span id="val_time">--:--:--</span>
+      </div>
+
+      <!-- Controls -->
+      <div class="bg-white p-4 rounded-lg shadow mb-6 flex flex-wrap gap-4 items-center">
+        <button onclick="updateTimestamp()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">
+          現在時刻同期
+        </button>
+        <button onclick="exportCSV()" class="bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded">
+          CSVエクスポート
+        </button>
+        
+        <div class="flex items-center gap-2 ml-auto">
+          <label for="chart_window" class="text-sm font-semibold text-gray-600">グラフ表示期間:</label>
+          <select id="chart_window" class="border rounded px-2 py-2 text-gray-700 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="60">1分</option>
+            <option value="300" selected>5分</option>
+            <option value="600">10分</option>
+            <option value="1800">30分</option>
+            <option value="3600">1時間</option>
+            <option value="10800">3時間</option>
+            <option value="21600">6時間</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Chart -->
+      <div class="bg-white rounded-lg shadow p-4 mb-6">
+        <canvas id="sensorChart" width="400" height="150"></canvas>
+      </div>
+
+      <!-- Log Table -->
+      <div class="bg-white rounded-lg shadow overflow-hidden">
+        <h3 class="bg-gray-50 px-4 py-2 border-b font-semibold">受信データログ (最新100件)</h3>
+        <div class="overflow-x-auto h-64">
+          <table class="w-full text-sm text-left">
+            <thead class="bg-gray-100 text-gray-600 sticky top-0">
+              <tr>
+                <th class="px-2 py-2">Time</th>
+                <th class="px-2 py-2">Env Temp</th>
+                <th class="px-2 py-2">Obj Temp</th>
+                <th class="px-2 py-2">Acc Avg</th>
+              </tr>
+            </thead>
+            <tbody id="log_tbody">
+              <!-- Logs go here -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
     </div>
-    <div class="my-4"></div>
-    <div class="flex flex-row justify-start item-center">
-      <p class="mr-2 h-10 leading-10">コマンド:</p>
-    </div>
-    <div class="flex flex-row justify-start item-center">
-      <p class="mr-2 h-10 leading-10">データ (例: 0xff):</p>
-      <input class="outline outline-1 my-2 mr-4" type="text" id="data_send" />
-      <button
-        class="outline outline-1 rounded-md px-4 py-2 text-white bg-gray-900"
-        onclick="send_command()"
-      >
-        送信
-      </button>
-    </div>
-    <div class="my-8"></div>
-    <div class="flex flex-row justify-start item-center my-4">
-      <button
-        class="outline outline-1 rounded-md px-4 py-2 text-white bg-green-700"
-        onclick="updateTimestamp()"
-      >
-        タイムスタンプ更新
-      </button>
-    </div>
-    <div class="flex flex-row justify-start item-center my-4">
-      <p class="mr-2 h-10 leading-10">ページ番号:</p>
-      <input
-        class="outline outline-1 my-2 mr-4 w-24"
-        type="number"
-        id="page_number"
-        min="0"
-        max="255"
-        value="0"
-      />
-      <button
-        class="outline outline-1 rounded-md px-4 py-2 text-white bg-blue-700"
-        onclick="read_page()"
-      >
-        読み出し
-      </button>
-    </div>
-    <div class="flex flex-row justify-start item-center">
-      <p class="mr-2 h-10 leading-10">応答:</p>
-    </div>
-    <div class="flex flex-row justify-start item-center w-full">
-      <textarea
-        class="outline outline-1 rounded-xs w-[800px] text-[12px] h-96"
-        id="response_history"
-      ></textarea>
-    </div>
-  </main>
-</body>
+  </body>
+</html>
