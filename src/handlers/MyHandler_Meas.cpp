@@ -12,23 +12,27 @@ MyState handler_meas_ble_disconnected(void *payload) { return STATE_MEAS; }
 
 MyState handler_meas_cmd_meas_start(void *payload) { return STATE_MEAS; }
 
-MyState handler_meas_cmd_meas_stop(void *payload) {
+MyState handler_meas_cmd_meas_stop(void *payload)
+{
   stop_meas();
   return STATE_WAIT;
 }
 
 MyState handler_meas_cmd_get_device_info(void *payload) { return STATE_MEAS; }
 
-MyState handler_meas_cmd_get_start_timestamp(void *payload) {
+MyState handler_meas_cmd_get_start_timestamp(void *payload)
+{
   return STATE_MEAS;
 }
 
-MyState handler_meas_cmd_set_start_timestamp(void *payload) {
+MyState handler_meas_cmd_set_start_timestamp(void *payload)
+{
   return STATE_MEAS;
 }
 MyState handler_meas_cmd_get_data_1_data(void *payload) { return STATE_MEAS; }
 
-MyState handler_meas_cmd_get_latest_data(void *payload) {
+MyState handler_meas_cmd_get_latest_data(void *payload)
+{
   uint8_t val[30];
   uint32_t now = sys->timestamp +
                  (millis() - sys->time_from_get_timstamp) /
@@ -69,7 +73,8 @@ MyState handler_meas_cmd_get_latest_data(void *payload) {
   return STATE_MEAS;
 }
 
-MyState handler_meas_cmd_get_timestamp(void *payload) {
+MyState handler_meas_cmd_get_timestamp(void *payload)
+{
   uint8_t val[6];
   uint32_t now = sys->timestamp +
                  (millis() - sys->time_from_get_timstamp) /
@@ -84,7 +89,8 @@ MyState handler_meas_cmd_get_timestamp(void *payload) {
   return STATE_MEAS;
 }
 
-MyState handler_meas_cmd_get_data_page_no(void *payload) {
+MyState handler_meas_cmd_get_data_page_no(void *payload)
+{
   uint8_t val[3];
   val[0] = 0x80;
   val[1] = 0x05;
@@ -93,22 +99,26 @@ MyState handler_meas_cmd_get_data_page_no(void *payload) {
   return STATE_MEAS;
 }
 
-MyState handler_meas_button_a_short_pressed(void *payload) {
+MyState handler_meas_button_a_short_pressed(void *payload)
+{
   return STATE_MEAS;
 }
 
-MyState handler_meas_button_a_long1_pressed(void *payload) {
+MyState handler_meas_button_a_long1_pressed(void *payload)
+{
   // 測定終了
   stop_meas();
   return STATE_WAIT;
 }
 
-MyState handler_meas_button_a_long2_pressed(void *payload) {
-  // waitoじゃないとなにもしない
+MyState handler_meas_button_a_long2_pressed(void *payload)
+{
+  // waitじゃないとなにもしない
   return STATE_MEAS;
 }
 
-MyState handler_meas_timer1_timeout(void *payload) {
+MyState handler_meas_timer1_timeout(void *payload)
+{
   // ble->Battery_chara->writeValue((batterySensor->getValue()));
   sensor->getValue();
   acc_comp_sum[(sys->cnt / 5) % 10] +=
@@ -118,7 +128,8 @@ MyState handler_meas_timer1_timeout(void *payload) {
   return STATE_MEAS;
 }
 
-MyState handler_meas_timer2_timeout(void *payload) {
+MyState handler_meas_timer2_timeout(void *payload)
+{
   envSensor->getValue();
   Serial.print("sys->cnt : ");
   Serial.println(sys->cnt);
@@ -134,13 +145,15 @@ MyState handler_meas_timer2_timeout(void *payload) {
   Serial.print("temp_env : ");
   Serial.println(envSensor->tmp_env);
   saveToQSPI();
-  for (uint8_t i = 0; i < 10; i++) {
+  for (uint8_t i = 0; i < 10; i++)
+  {
     acc_comp_sum[i] = 0;
   }
   return STATE_MEAS;
 }
 
-MyState handler_meas_timer3_timeout(void *payload) {
+MyState handler_meas_timer3_timeout(void *payload)
+{
   display->update();
   return STATE_MEAS;
 }

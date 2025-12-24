@@ -9,19 +9,20 @@
 #define SCREEN_HEIGHT 32
 #define OLED_RESET -1
 
-class MyDisplay {
+class MyDisplay
+{
 
 private:
   // メンバ
   ulong time_s = 0;     // タイマー用
   ulong time_e = 0;     // タイマー用
   uint8_t cycleCnt = 0; // Duty loop counter
-  Adafruit_SSD1306 *display;
 
 public:
   //  関数
   MyDisplay();
   ~MyDisplay();
+  Adafruit_SSD1306 *display;
   void initialize();
   void update();
 };

@@ -6,37 +6,51 @@
 
 uint16_t acc_comp_sum[10] = {0}; // 0.5sの間に取得した加速度センサの値の合計
 //
-void init_meas() {
+void init_meas()
+{
   sys->cnt = 0;
   sys->cnt_save = 0;
-  for (uint8_t i = 0; i < 10; i++) {
+  for (uint8_t i = 0; i < 10; i++)
+  {
     acc_comp_sum[i] = 0;
   }
   // 初期化したいが、関数使うと長さの指定ができないので、自分で書き込む
   uint32_t add = 0;
-  if (sys->data_page_no == 0) {
+  if (sys->data_page_no == 0)
+  {
     add = ADDRESS_DATA_PAGE_1;
-  } else if (sys->data_page_no == 1) {
+  }
+  else if (sys->data_page_no == 1)
+  {
     add = ADDRESS_DATA_PAGE_2;
-  } else if (sys->data_page_no == 2) {
+  }
+  else if (sys->data_page_no == 2)
+  {
     add = ADDRESS_DATA_PAGE_3;
-  } else if (sys->data_page_no == 3) {
+  }
+  else if (sys->data_page_no == 3)
+  {
     add = ADDRESS_DATA_PAGE_4;
-  } else if (sys->data_page_no == 4) {
+  }
+  else if (sys->data_page_no == 4)
+  {
     add = ADDRESS_DATA_PAGE_5;
   }
-  for (uint32_t i = 0; i < NUM_UNIT_DATA_PAGE; i++) {
+  for (uint32_t i = 0; i < NUM_UNIT_DATA_PAGE; i++)
+  {
 
     QSPI_Erase(add + UNIT_DATA_PAGE * i, NRF_QSPI_ERASE_LEN_64KB);
   }
 }
 
-void stop_meas() {
+void stop_meas()
+{
   // 測定終了
   sys->data_page_no = (sys->data_page_no + 1) % 5;
 }
 
-void saveToQSPI() {
+void saveToQSPI()
+{
   // QSPIに保存
   // タイムスタンプ（4byte）, 加速度積算値10個(20byte), 温度（2byte）,
   // 湿度（2byte）
@@ -75,24 +89,34 @@ void saveToQSPI() {
   val[26] = uint8_t(iTmpEnv >> 0);
   val[27] = uint8_t(iTmpEnv >> 8);
 
-  if (sys->data_page_no == 0) {
+  if (sys->data_page_no == 0)
+  {
     QSPI_Write(val, ADDRESS_DATA_PAGE_1 + sys->cnt_save * NUM_DATA_SIZE,
                NUM_DATA_SIZE);
-  } else if (sys->data_page_no == 1) {
+  }
+  else if (sys->data_page_no == 1)
+  {
     QSPI_Write(val, ADDRESS_DATA_PAGE_2 + sys->cnt_save * NUM_DATA_SIZE,
                NUM_DATA_SIZE);
-  } else if (sys->data_page_no == 2) {
+  }
+  else if (sys->data_page_no == 2)
+  {
     QSPI_Write(val, ADDRESS_DATA_PAGE_3 + sys->cnt_save * NUM_DATA_SIZE,
                NUM_DATA_SIZE);
-  } else if (sys->data_page_no == 3) {
+  }
+  else if (sys->data_page_no == 3)
+  {
     QSPI_Write(val, ADDRESS_DATA_PAGE_4 + sys->cnt_save * NUM_DATA_SIZE,
                NUM_DATA_SIZE);
-  } else if (sys->data_page_no == 4) {
+  }
+  else if (sys->data_page_no == 4)
+  {
     QSPI_Write(val, ADDRESS_DATA_PAGE_5 + sys->cnt_save * NUM_DATA_SIZE,
                NUM_DATA_SIZE);
   }
   sys->cnt_save++;
-  if (sys->cnt_save >= 8640) {
+  if (sys->cnt_save >= 8640)
+  {
     // 8640回保存したら、データページ番号を更新し、強制的に終了
     stop_meas();
     enqueue(EVT_BLE_CMD_MEAS_STOP, NULL, 0);
@@ -104,7 +128,8 @@ void saveToQSPI() {
  */
 void notify() {}
 
-void notifyVersion() {
+void notifyVersion()
+{
   uint8_t val[5];
   uint8_t tmp[4] = {0, 0, 0, 0};
   nrfx_qspi_read(tmp, 4, ADDRESS_MAJOR_VERSION);
@@ -120,7 +145,8 @@ void notifyVersion() {
  * @brief タイムスタンプ値をNotify
  *
  */
-void notifyTimestamp() {
+void notifyTimestamp()
+{
   uint8_t val[6];
   val[0] = 0x80; // 識別子1
   val[1] = 0x02; // 識別子2
@@ -128,7 +154,8 @@ void notifyTimestamp() {
   val[3] = uint8_t(sys->timestamp >> 8);
   val[4] = uint8_t(sys->timestamp >> 16);
   val[5] = uint8_t(sys->timestamp >> 24);
-  for (uint8_t i = 0; i < 6; i++) {
+  for (uint8_t i = 0; i < 6; i++)
+  {
     Serial.print(val[i], HEX);
     Serial.print(" ");
   }
@@ -154,13 +181,13 @@ EventHandler state_transition_table[STATE_MAX][EVT_MAX] = {
         handler_wait_cmd_get_data_1_data,     // EVT_BLE_CMD_GET_DATA_1_DATA
         handler_wait_cmd_get_latest_data,     // EVT_BLE_CMD_GET_LATEST_DATA
         handler_wait_cmd_get_timestamp,       // EVT_BLE_CMD_GET_TIMESTAMP
-        handler_wait_cmd_get_data_page_no, // EVT_BLE_CMD_GET_sys->data_page_no
-        handler_wait_button_a_short_pressed, // EVT_BUTTON_A_SHORT_PRESSED
-        handler_wait_button_a_long1_pressed, // EVT_BUTTON_A_LONG1_PRESSED
-        handler_wait_button_a_long2_pressed, // EVT_BUTTON_A_LONG2_PRESSED
-        handler_wait_timer1_timeout,         // EVT_TIMER1_TIMEOUT
-        handler_wait_timer2_timeout,         // EVT_TIMER2_TIMEOUT
-        handler_wait_timer3_timeout,         // EVT_TIMER3_TIMEOUT
+        handler_wait_cmd_get_data_page_no,    // EVT_BLE_CMD_GET_sys->data_page_no
+        handler_wait_button_a_short_pressed,  // EVT_BUTTON_A_SHORT_PRESSED
+        handler_wait_button_a_long1_pressed,  // EVT_BUTTON_A_LONG1_PRESSED
+        handler_wait_button_a_long2_pressed,  // EVT_BUTTON_A_LONG2_PRESSED
+        handler_wait_timer1_timeout,          // EVT_TIMER1_TIMEOUT
+        handler_wait_timer2_timeout,          // EVT_TIMER2_TIMEOUT
+        handler_wait_timer3_timeout,          // EVT_TIMER3_TIMEOUT
     },
 
     // MEAS_STATE
@@ -176,11 +203,11 @@ EventHandler state_transition_table[STATE_MAX][EVT_MAX] = {
         handler_meas_cmd_get_data_1_data,     // EVT_BLE_CMD_GET_DATA_1_DATA
         handler_meas_cmd_get_latest_data,     // EVT_BLE_CMD_GET_LATEST_DATA
         handler_meas_cmd_get_timestamp,       // EVT_BLE_CMD_GET_TIMESTAMP
-        handler_meas_cmd_get_data_page_no, // EVT_BLE_CMD_GET_sys->data_page_no
-        handler_meas_button_a_short_pressed, // EVT_BUTTON_A_SHORT_PRESSED
-        handler_meas_button_a_long1_pressed, // EVT_BUTTON_A_LONG1_PRESSED
-        handler_meas_button_a_long2_pressed, // EVT_BUTTON_A_LONG2_PRESSED
-        handler_meas_timer1_timeout,         // EVT_TIMER1_TIMEOUT
-        handler_meas_timer2_timeout,         // EVT_TIMER2_TIMEOUT
-        handler_meas_timer3_timeout,         // EVT_TIMER3_TIMEOUT
+        handler_meas_cmd_get_data_page_no,    // EVT_BLE_CMD_GET_sys->data_page_no
+        handler_meas_button_a_short_pressed,  // EVT_BUTTON_A_SHORT_PRESSED
+        handler_meas_button_a_long1_pressed,  // EVT_BUTTON_A_LONG1_PRESSED
+        handler_meas_button_a_long2_pressed,  // EVT_BUTTON_A_LONG2_PRESSED
+        handler_meas_timer1_timeout,          // EVT_TIMER1_TIMEOUT
+        handler_meas_timer2_timeout,          // EVT_TIMER2_TIMEOUT
+        handler_meas_timer3_timeout,          // EVT_TIMER3_TIMEOUT
     }};

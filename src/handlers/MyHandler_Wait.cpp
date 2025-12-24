@@ -4,7 +4,8 @@
 #include "global.h"
 #include <nrf_power.h>
 
-MyState handler_wait_nop(void *payload) {
+MyState handler_wait_nop(void *payload)
+{
   // bleデバイスの状態で点滅か点灯か変える
   return STATE_WAIT;
 }
@@ -17,24 +18,28 @@ MyState handler_wait_cmd_meas_start(void *payload) { return STATE_MEAS; }
 
 MyState handler_wait_cmd_meas_stop(void *payload) { return STATE_WAIT; }
 
-MyState handler_wait_cmd_get_device_info(void *payload) {
+MyState handler_wait_cmd_get_device_info(void *payload)
+{
   notifyVersion();
   return STATE_WAIT;
 }
 
-MyState handler_wait_cmd_get_start_timestamp(void *payload) {
+MyState handler_wait_cmd_get_start_timestamp(void *payload)
+{
   notifyTimestamp();
   return STATE_WAIT;
 }
 
-MyState handler_wait_cmd_set_start_timestamp(void *payload) {
+MyState handler_wait_cmd_set_start_timestamp(void *payload)
+{
   sys->setTimestamp(*((uint32_t *)payload)); // 4バイトの値を取得
   QSPI_Erase(ADDRESS_TIMESTAMP, NRF_QSPI_ERASE_LEN_4KB);
   QSPI_Write(&sys->timestamp, ADDRESS_TIMESTAMP, 4);
   return STATE_WAIT;
 }
 
-MyState handler_wait_cmd_get_data_1_data(void *payload) {
+MyState handler_wait_cmd_get_data_1_data(void *payload)
+{
   //  1バイトデータ取得
   {
     led->setLEDRGB(true, false, false);
@@ -43,24 +48,33 @@ MyState handler_wait_cmd_get_data_1_data(void *payload) {
     uint8_t pBuf[28] = {0};
     uint8_t *pPayload = (uint8_t *)payload;
     // ページ番号を取得
-    uint8_t pageNo = pPayload[0]; // pPayloadの最初の1バイトがページ番号
+    uint8_t pageNo = pPayload[0];                       // pPayloadの最初の1バイトがページ番号
     uint16_t dataNo = pPayload[1] | (pPayload[2] << 8); // データ番号を取得
-    if (pageNo == 0) {
+    if (pageNo == 0)
+    {
       nrfx_qspi_read(pBuf, 28, ADDRESS_DATA_PAGE_1 + dataNo * NUM_DATA_SIZE);
-    } else if (pageNo == 1) {
+    }
+    else if (pageNo == 1)
+    {
       nrfx_qspi_read(pBuf, 28, ADDRESS_DATA_PAGE_2 + dataNo * NUM_DATA_SIZE);
-    } else if (pageNo == 2) {
+    }
+    else if (pageNo == 2)
+    {
       nrfx_qspi_read(pBuf, 28, ADDRESS_DATA_PAGE_3 + dataNo * NUM_DATA_SIZE);
-    } else if (pageNo == 3) {
+    }
+    else if (pageNo == 3)
+    {
       nrfx_qspi_read(pBuf, 28, ADDRESS_DATA_PAGE_4 + dataNo * NUM_DATA_SIZE);
-    } else if (pageNo == 4) {
+    }
+    else if (pageNo == 4)
+    {
       nrfx_qspi_read(pBuf, 28, ADDRESS_DATA_PAGE_5 + dataNo * NUM_DATA_SIZE);
     }
-    uint8_t val[33]; // 識別番号2byte + ページ番号1byte + データ番号2byte +
-                     // データ20byte
-    val[0] = 0x82;   // 識別子1
-    val[1] = 0x00;   // 識別子2
-    val[2] = pageNo; // ページ番号
+    uint8_t val[33];                          // 識別番号2byte + ページ番号1byte + データ番号2byte +
+                                              // データ20byte
+    val[0] = 0x82;                            // 識別子1
+    val[1] = 0x00;                            // 識別子2
+    val[2] = pageNo;                          // ページ番号
     val[3] = (uint8_t)(dataNo & 0xff);        // データ番号
     val[4] = (uint8_t)((dataNo >> 8) & 0xff); // データ番号
     memcpy(&val[5], pBuf, NUM_DATA_SIZE);
@@ -69,7 +83,8 @@ MyState handler_wait_cmd_get_data_1_data(void *payload) {
   return STATE_WAIT;
 }
 
-MyState handler_wait_cmd_get_latest_data(void *payload) {
+MyState handler_wait_cmd_get_latest_data(void *payload)
+{
   uint8_t val[30];
   uint32_t now = sys->timestamp +
                  (millis() - sys->time_from_get_timstamp) /
@@ -110,7 +125,8 @@ MyState handler_wait_cmd_get_latest_data(void *payload) {
   return STATE_WAIT;
 }
 
-MyState handler_wait_cmd_get_timestamp(void *payload) {
+MyState handler_wait_cmd_get_timestamp(void *payload)
+{
   uint8_t val[6];
   uint32_t now = sys->timestamp +
                  (millis() - sys->time_from_get_timstamp) /
@@ -125,7 +141,8 @@ MyState handler_wait_cmd_get_timestamp(void *payload) {
   return STATE_WAIT;
 }
 
-MyState handler_wait_cmd_get_data_page_no(void *payload) {
+MyState handler_wait_cmd_get_data_page_no(void *payload)
+{
   uint8_t val[3];
   val[0] = 0x80;
   val[1] = 0x05;
@@ -134,13 +151,17 @@ MyState handler_wait_cmd_get_data_page_no(void *payload) {
   return STATE_WAIT;
 }
 
-MyState handler_wait_button_a_short_pressed(void *payload) {
+MyState handler_wait_button_a_short_pressed(void *payload)
+{
   Serial.println("SHORT PRESSED");
-  if (sys->is_set_timestamp) {
+  if (sys->is_set_timestamp)
+  {
     // 測定へ移行
     init_meas();
     return STATE_MEAS;
-  } else {
+  }
+  else
+  {
     // もしタイムスタンプが0ならば、LEDを点滅させる
     led->setLEDRGB(false, true, false);
     delay(100);
@@ -158,20 +179,30 @@ MyState handler_wait_button_a_short_pressed(void *payload) {
   return STATE_WAIT;
 }
 
-MyState handler_wait_button_a_long1_pressed(void *payload) {
+MyState handler_wait_button_a_long1_pressed(void *payload)
+{
   return STATE_WAIT;
 }
 
-MyState handler_wait_button_a_long2_pressed(void *payload) {
+MyState handler_wait_button_a_long2_pressed(void *payload)
+{
+  // displayオフにする
+  display->display
+      ->display(); // 画面描写エリアをディスプレイに転送。ここで全画面を削除。
+  display->display->clearDisplay();
+  display->display->ssd1306_command(SSD1306_DISPLAYOFF);
   // deepsleepモードへ移行
   NRF_POWER->SYSTEMOFF = 1;
   return STATE_WAIT;
 }
 
-MyState handler_wait_timer1_timeout(void *payload) {
+MyState handler_wait_timer1_timeout(void *payload)
+{
   // Clear buffer at start of 1s cycle
-  if (sys->cnt % 10 == 0) {
-    for (uint8_t i = 0; i < 10; i++) {
+  if (sys->cnt % 10 == 0)
+  {
+    for (uint8_t i = 0; i < 10; i++)
+    {
       acc_comp_sum[i] = 0;
     }
   }
@@ -183,12 +214,14 @@ MyState handler_wait_timer1_timeout(void *payload) {
   return STATE_WAIT;
 }
 
-MyState handler_wait_timer2_timeout(void *payload) {
+MyState handler_wait_timer2_timeout(void *payload)
+{
   // Timer2 is 5s, not used for WAIT logic anymore (aligned to Timer3)
   return STATE_WAIT;
 }
 
-MyState handler_wait_timer3_timeout(void *payload) {
+MyState handler_wait_timer3_timeout(void *payload)
+{
   envSensor->getValue();
   display->update();
   return STATE_WAIT;
