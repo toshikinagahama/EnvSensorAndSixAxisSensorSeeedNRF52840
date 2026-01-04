@@ -1,22 +1,23 @@
 #include "MyLed.h"
 
-MyLed::MyLed()
-{
-}
+MyLed::MyLed() {}
 
-MyLed::~MyLed()
-{
-}
+MyLed::~MyLed() {}
+
+// 255 = OFF (Active Low), 0 = MAX Brightness
+// 250 is very dim (low duty cycle)
+#define LED_OFF 255
+#define LED_ON_DIM 250
 
 /**
  * @brief 初期化関数
  *
  */
-void MyLed::initialize()
-{
+void MyLed::initialize() {
   pinMode(LED_RED, OUTPUT);
   pinMode(LED_GREEN, OUTPUT);
   pinMode(LED_BLUE, OUTPUT);
+  // Ensure all off
   digitalWrite(LED_RED, HIGH);
   digitalWrite(LED_GREEN, HIGH);
   digitalWrite(LED_BLUE, HIGH);
@@ -29,23 +30,18 @@ void MyLed::initialize()
  * @param interval_on
  * @param interval_off
  */
-void MyLed::blink(Color color, uint16_t interval_on, uint16_t interval_off)
-{
+void MyLed::blink(Color color, uint16_t interval_on, uint16_t interval_off) {
   this->time_e = millis();
 
-  switch (color)
-  {
+  switch (color) {
   case COLOR_RED:
-    if (this->isRedOn && this->time_e - this->time_s > interval_on)
-    {
+    if (this->isRedOn && this->time_e - this->time_s > interval_on) {
       // 点灯している場合
       // 点灯間隔分を超えたらオフ
       setLEDRGB(false, false, false);
       isRedOn = !isRedOn;
       this->time_s = this->time_e;
-    }
-    else if (!this->isRedOn && this->time_e - this->time_s > interval_off)
-    {
+    } else if (!this->isRedOn && this->time_e - this->time_s > interval_off) {
       // 消灯している場合
       // 消灯間隔分を超えたらオン
       setLEDRGB(false, false, false);
@@ -55,16 +51,13 @@ void MyLed::blink(Color color, uint16_t interval_on, uint16_t interval_off)
     }
     break;
   case COLOR_GREEN:
-    if (this->isGreenOn && this->time_e - this->time_s > interval_on)
-    {
+    if (this->isGreenOn && this->time_e - this->time_s > interval_on) {
       // 点灯している場合
       // 点灯間隔分を超えたらオフ
       setLEDRGB(false, false, false);
       isGreenOn = !isGreenOn;
       this->time_s = this->time_e;
-    }
-    else if (!this->isGreenOn && this->time_e - this->time_s > interval_off)
-    {
+    } else if (!this->isGreenOn && this->time_e - this->time_s > interval_off) {
       // 消灯している場合
       // 消灯間隔分を超えたらオン
       setLEDRGB(false, false, false);
@@ -74,16 +67,13 @@ void MyLed::blink(Color color, uint16_t interval_on, uint16_t interval_off)
     }
     break;
   case COLOR_BLUE:
-    if (this->isBlueOn && this->time_e - this->time_s > interval_on)
-    {
+    if (this->isBlueOn && this->time_e - this->time_s > interval_on) {
       // 点灯している場合
       // 点灯間隔分を超えたらオフ
       setLEDRGB(false, false, false);
       isBlueOn = !isBlueOn;
       this->time_s = this->time_e;
-    }
-    else if (!this->isBlueOn && this->time_e - this->time_s > interval_off)
-    {
+    } else if (!this->isBlueOn && this->time_e - this->time_s > interval_off) {
       // 消灯している場合
       // 消灯間隔分を超えたらオン
       setLEDRGB(false, false, false);
@@ -104,30 +94,21 @@ void MyLed::blink(Color color, uint16_t interval_on, uint16_t interval_off)
  * @param interval_on
  * @param interval_off
  */
-void MyLed::redBlink(uint16_t interval_on, uint16_t interval_off)
-{
+void MyLed::redBlink(uint16_t interval_on, uint16_t interval_off) {
   this->time_e = millis();
-  if (this->isRedOn && this->time_e - this->time_s > interval_on)
-  {
-    // 点灯している場合
-    // 点灯間隔分を超えたらオフ
-    digitalWrite(LED_GREEN, HIGH);
-    digitalWrite(LED_BLUE, HIGH);
+  if (this->isRedOn && this->time_e - this->time_s > interval_on) {
+    // 点灯している場合 -> オフにする
     digitalWrite(LED_RED, HIGH);
     isRedOn = !isRedOn;
     this->time_s = this->time_e;
-  }
-  else if (!this->isRedOn && this->time_e - this->time_s > interval_off)
-  {
-    // 消灯している場合
-    // 消灯間隔分を超えたらオン
-    digitalWrite(LED_RED, LOW);
+  } else if (!this->isRedOn && this->time_e - this->time_s > interval_off) {
+    // 消灯している場合 -> オンにする (PWMで暗く)
+    analogWrite(LED_RED, LED_ON_DIM);
     isRedOn = !isRedOn;
     this->time_s = this->time_e;
   }
-  else
-  {
-  }
+
+  // 他の色は確実にOFF
   digitalWrite(LED_GREEN, HIGH);
   digitalWrite(LED_BLUE, HIGH);
 }
@@ -138,30 +119,20 @@ void MyLed::redBlink(uint16_t interval_on, uint16_t interval_off)
  * @param interval_on
  * @param interval_off
  */
-void MyLed::greenBlink(uint16_t interval_on, uint16_t interval_off)
-{
+void MyLed::greenBlink(uint16_t interval_on, uint16_t interval_off) {
   this->time_e = millis();
-  if (this->isGreenOn && this->time_e - this->time_s > interval_on)
-  {
-    // 点灯している場合
-    // 点灯間隔分を超えたらオフ
+  if (this->isGreenOn && this->time_e - this->time_s > interval_on) {
+    // 点灯している場合 -> オフ
     digitalWrite(LED_GREEN, HIGH);
-    digitalWrite(LED_BLUE, HIGH);
-    digitalWrite(LED_RED, HIGH);
+    isGreenOn = !isGreenOn;
+    this->time_s = this->time_e;
+  } else if (!this->isGreenOn && this->time_e - this->time_s > interval_off) {
+    // 消灯している場合 -> オン (PWM)
+    analogWrite(LED_GREEN, LED_ON_DIM);
     isGreenOn = !isGreenOn;
     this->time_s = this->time_e;
   }
-  else if (!this->isGreenOn && this->time_e - this->time_s > interval_off)
-  {
-    // 消灯している場合
-    // 消灯間隔分を超えたらオン
-    digitalWrite(LED_GREEN, LOW);
-    isGreenOn = !isGreenOn;
-    this->time_s = this->time_e;
-  }
-  else
-  {
-  }
+
   digitalWrite(LED_RED, HIGH);
   digitalWrite(LED_BLUE, HIGH);
 }
@@ -172,30 +143,20 @@ void MyLed::greenBlink(uint16_t interval_on, uint16_t interval_off)
  * @param interval_on
  * @param interval_off
  */
-void MyLed::blueBlink(uint16_t interval_on, uint16_t interval_off)
-{
+void MyLed::blueBlink(uint16_t interval_on, uint16_t interval_off) {
   this->time_e = millis();
-  if (this->isBlueOn && this->time_e - this->time_s > interval_on)
-  {
-    // 点灯している場合
-    // 点灯間隔分を超えたらオフ
-    digitalWrite(LED_GREEN, HIGH);
+  if (this->isBlueOn && this->time_e - this->time_s > interval_on) {
+    // 点灯 -> オフ
     digitalWrite(LED_BLUE, HIGH);
-    digitalWrite(LED_RED, HIGH);
+    isBlueOn = !isBlueOn;
+    this->time_s = this->time_e;
+  } else if (!this->isBlueOn && this->time_e - this->time_s > interval_off) {
+    // 消灯 -> オン (PWM)
+    analogWrite(LED_BLUE, LED_ON_DIM);
     isBlueOn = !isBlueOn;
     this->time_s = this->time_e;
   }
-  else if (!this->isBlueOn && this->time_e - this->time_s > interval_off)
-  {
-    // 消灯している場合
-    // 消灯間隔分を超えたらオン
-    digitalWrite(LED_BLUE, LOW);
-    isBlueOn = !isBlueOn;
-    this->time_s = this->time_e;
-  }
-  else
-  {
-  }
+
   digitalWrite(LED_RED, HIGH);
   digitalWrite(LED_GREEN, HIGH);
 }
@@ -207,18 +168,19 @@ void MyLed::blueBlink(uint16_t interval_on, uint16_t interval_off)
  * @param green
  * @param blue
  */
-void MyLed::setLEDRGB(bool red, bool green, bool blue)
-{
+void MyLed::setLEDRGB(bool red, bool green, bool blue) {
   if (!red)
     digitalWrite(LED_RED, HIGH);
   else
-    digitalWrite(LED_RED, LOW);
+    analogWrite(LED_RED, LED_ON_DIM);
+
   if (!green)
     digitalWrite(LED_GREEN, HIGH);
   else
-    digitalWrite(LED_GREEN, LOW);
+    analogWrite(LED_GREEN, LED_ON_DIM);
+
   if (!blue)
     digitalWrite(LED_BLUE, HIGH);
   else
-    digitalWrite(LED_BLUE, LOW);
+    analogWrite(LED_BLUE, LED_ON_DIM);
 }

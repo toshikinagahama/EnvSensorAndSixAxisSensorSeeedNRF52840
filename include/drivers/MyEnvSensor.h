@@ -6,8 +6,7 @@
 
 #define MLX90614_ADDRESS 0x5A
 
-class MyEnvSensor
-{
+class MyEnvSensor {
 
 public:
   // メンバ
@@ -19,7 +18,7 @@ public:
   ~MyEnvSensor();
   void initialize();
   void getValue();
-  void ReadFromMLX90614(char addr, char cmd, char *arry);
-  float ReadTempFromMLX90614(char addr, char type);
+  bool ReadFromMLX90614(char addr, char cmd, char *arry);
+  bool GetTempFromMLX90614(char addr, char type, float *value);
 };
 #endif

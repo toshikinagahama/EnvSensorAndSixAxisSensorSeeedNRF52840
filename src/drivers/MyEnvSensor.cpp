@@ -1,24 +1,20 @@
 #include "MyEnvSensor.h"
 #include "global.h"
 
-MyEnvSensor::MyEnvSensor()
-{
-}
+MyEnvSensor::MyEnvSensor() {}
 
-MyEnvSensor::~MyEnvSensor()
-{
-}
+MyEnvSensor::~MyEnvSensor() {}
 
-void MyEnvSensor::initialize()
-{
-  Wire.begin();
-}
+void MyEnvSensor::initialize() { Wire.begin(); }
 
-void MyEnvSensor::getValue()
-{
-
-  this->tmp_obj = ReadTempFromMLX90614(MLX90614_ADDRESS, 'O');
-  this->tmp_env = ReadTempFromMLX90614(MLX90614_ADDRESS, 'A');
+void MyEnvSensor::getValue() {
+  float temp;
+  if (GetTempFromMLX90614(MLX90614_ADDRESS, 'O', &temp)) {
+    this->tmp_obj = temp;
+  }
+  if (GetTempFromMLX90614(MLX90614_ADDRESS, 'A', &temp)) {
+    this->tmp_env = temp;
+  }
 }
 
 // http://blog.livedoor.jp/ktkt_91st/archives/1020073547.htmlから
@@ -27,9 +23,9 @@ void MyEnvSensor::getValue()
  *     addr   : slave address                                  *
  *     cmd    : resister address                               *
  *     *array : address of array to contain data               *
+ *     return : true if success, false if failed               *
  **************************************************************/
-void MyEnvSensor::ReadFromMLX90614(char addr, char cmd, char *arry)
-{
+bool MyEnvSensor::ReadFromMLX90614(char addr, char cmd, char *arry) {
   char i;
 
   Wire.beginTransmission(addr); // start recieve process
@@ -37,20 +33,19 @@ void MyEnvSensor::ReadFromMLX90614(char addr, char cmd, char *arry)
   Wire.endTransmission(false);  // publish repeat start condition
 
   Wire.requestFrom(addr, 3); // request data+pec byte
-  while (Wire.available() < 3)
-  {
-    // Wire.beginTransmission(addr); // start recieve process
-    // Wire.write(cmd);              // Write command
-    // Wire.endTransmission(false);  // publish repeat start condition
 
-    Wire.requestFrom(addr, 3); // request data+pec byte
+  // No retry/blocking loop. If data isn't ready immediately, treat as fail.
+  // The user prioritizes non-blocking over guaranteed read.
+  if (Wire.available() < 3) {
+    return false;
   }
-  for (i = 0; i < 2; i++)
-  {
+
+  for (i = 0; i < 2; i++) {
     arry[i] = Wire.read(); // read data
   }
   Wire.read();            // pec byte
   Wire.endTransmission(); // end recieve process
+  return true;
 }
 
 /* Function that reads temperature from MLX90614 *
@@ -59,20 +54,32 @@ void MyEnvSensor::ReadFromMLX90614(char addr, char cmd, char *arry)
  *        type : type of temperature              *
  *                  'O' or 'o' : reads object     *
  *                  other      : reads ambient    *
+ *        *value : pointer to store result        *
  *      return                                    *
- *        Degrees Celsius of temperature          *
+ *        true if success                         *
  *************************************************/
-float MyEnvSensor::ReadTempFromMLX90614(char addr, char type)
-{
+bool MyEnvSensor::GetTempFromMLX90614(char addr, char type, float *value) {
   int tmp;
   char cmd;
   char dat[2];
   float temp;
 
   cmd = (type == 'O' || type == 'o') ? (0x07) : (0x06); // determin command
-  ReadFromMLX90614(addr, cmd, dat);                     // recieve from MLX90614
-  tmp = (dat[1] << 8) + dat[0];                         // to temperature in marge two bytes
-  temp = (((float)tmp * 2.0) - 27315.0) / 100.0;        // convert Absolute temperature to Degrees Celsius of temperature
+  if (!ReadFromMLX90614(addr, cmd, dat)) {
+    return false; // Read failed
+  }
 
-  return temp;
+  tmp = (dat[1] << 8) + dat[0]; // to temperature in marge two bytes
+
+  // Check for Invalid Zero Reading (Communication Error)
+  if (tmp == 0) {
+    return false;
+  }
+
+  temp =
+      (((float)tmp * 2.0) - 27315.0) /
+      100.0; // convert Absolute temperature to Degrees Celsius of temperature
+
+  *value = temp;
+  return true;
 }

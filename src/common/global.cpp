@@ -10,10 +10,7 @@ int tail = 0;
 int count = 0;
 
 // キューが空かどうかをチェック
-int is_queue_empty(void)
-{
-  return count == 0;
-}
+int is_queue_empty(void) { return count == 0; }
 
 /********************/
 /*    外部定義      */
@@ -30,24 +27,19 @@ BLEDevice central;
 static const uint8_t DEFAULT_PAYLOAD[1] = {0x00};
 
 // キューにイベントを追加
-void enqueue(MyEventID id, const uint8_t *payload, size_t length)
-{
+void enqueue(MyEventID id, const uint8_t *payload, size_t length) {
 
-  if (id != 15)
-  {
+  if (id != 15) {
     Serial.print("Enqueue event: ");
     Serial.println(id);
   }
-  if (count < QUEUE_SIZE)
-  {
+  if (count < QUEUE_SIZE) {
+    noInterrupts(); // Enter Critical Section
     MyEvent event;
     event.id = id;
-    if (payload == NULL)
-    {
+    if (payload == NULL) {
       memcpy(event.payload, DEFAULT_PAYLOAD, 1);
-    }
-    else
-    {
+    } else {
       memcpy(event.payload, payload, length);
     }
     event.length = length;
@@ -55,21 +47,20 @@ void enqueue(MyEventID id, const uint8_t *payload, size_t length)
     event_queue[tail] = event;
     tail = (tail + 1) % QUEUE_SIZE;
     count++;
-  }
-  else
-  {
+    interrupts(); // Exit Critical Section
+  } else {
     Serial.println("Queue is full!");
   }
 }
 
 // キューからイベントを取り出す
-MyEvent dequeue(void)
-{
-  if (count > 0)
-  {
+MyEvent dequeue(void) {
+  if (count > 0) {
+    noInterrupts(); // Enter Critical Section
     MyEvent event = event_queue[head];
     head = (head + 1) % QUEUE_SIZE;
     count--;
+    interrupts(); // Exit Critical Section
     return event;
   }
   // キューが空の場合にEVT_NOPを返す

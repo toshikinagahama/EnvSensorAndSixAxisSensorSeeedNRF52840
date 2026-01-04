@@ -55,3 +55,53 @@ Byteごと
 //0405504 - 0602111 データ3ページ（196,608(=3 * 1024 * 64)byte分）
 //0602112 - 0798719 データ4ページ（196,608(=3 * 1024 * 64)byte分）
 //0798720 - 0995327 データ5ページ（196,608(=3 * 1024 * 64)byte分）
+
+# ソフトウェア設計 (Software Design)
+
+## 状態遷移図 (State Transition Diagram)
+
+```mermaid
+stateDiagram-v2
+    [*] --> WAIT_STATE
+
+    state WAIT_STATE {
+        [*] --> Idle
+        Idle --> Idle : Timer/BLE Events
+    }
+
+    state MEAS_STATE {
+        [*] --> Measuring
+        Measuring --> Measuring : Data Logging/Timer Events
+    }
+
+    WAIT_STATE --> MEAS_STATE : EVT_BLE_CMD_MEAS_START
+    WAIT_STATE --> MEAS_STATE : EVT_BUTTON_A_SHORT_PRESSED (Time Set)
+    
+    MEAS_STATE --> WAIT_STATE : EVT_BLE_CMD_MEAS_STOP
+    MEAS_STATE --> WAIT_STATE : EVT_BUTTON_A_LONG1_PRESSED
+    
+    WAIT_STATE --> [*] : EVT_BUTTON_A_LONG2_PRESSED (Deep Sleep)
+```
+
+## フローチャート (Flowchart)
+
+```mermaid
+flowchart TD
+    Start([Start]) --> Setup[Setup: Init Sys, BLE, Sensors]
+    Setup --> Loop{Main Loop}
+    
+    Loop --> UpdateDrivers[Update Drivers: Timer, Button, BLE]
+    UpdateDrivers --> Dequeue[Dequeue Event]
+    
+    Dequeue --> CheckEvent{Event Exists?}
+    CheckEvent -- Yes --> LookupHandler[Lookup Handler in Table]
+    CheckEvent -- No --> UIUpdate[UI Update]
+    
+    LookupHandler --> RunHandler[Execute Handler]
+    RunHandler --> UpdateState[Update System State]
+    UpdateState --> UIUpdate
+    
+    UIUpdate --> Delay[Delay 1us]
+    Delay --> Loop
+```
+
