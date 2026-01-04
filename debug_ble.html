@@ -11,7 +11,8 @@
       var _oDevice;
       var _oCharaWrite;
       var _oCharaBatt;
-      var dataLog = []; // Parsed data history
+      var dataLog = []; // Parsed data history (Live)
+      var flashDataLog = []; // Downloaded Flash Data
       var _pollingInterval;
 
       var _chart; // Chart instance
@@ -22,6 +23,17 @@
         "beb5483e-36e1-4688-b7f5-ea07361b26a8";
       const DEVICE_READ_CHARACTERISTIC_UUID =
         "beb5483f-36e1-4688-b7f5-ea07361b26a8";
+
+      // Constants for Flash Reading
+      const NUM_PAGES = 5;
+      const UNIT_DATA_PAGE = 64 * 1024; // 64KB
+      const NUM_DATA_SIZE = 28; // Data size per record
+      const RECORDS_PER_PAGE = Math.floor(UNIT_DATA_PAGE * 4); 
+      
+      let isDownloading = false;
+      let downloadCursor = { page: 0, index: 0 };
+      let downloadTargetPage = -1; // -1: All, 0-4: Specific Page
+      let downloadStartTime = 0;
 
       window.onload = function() {
           initChart();
@@ -151,6 +163,7 @@
 
           document.getElementById("status_text").innerText = "状態: 接続完了 (データ取得中)";
           document.getElementById("status_text").classList.add("text-green-600");
+          document.getElementById("btn_download").disabled = false;
           
           // Start Polling
           startPolling();
@@ -164,6 +177,8 @@
       function startPolling() {
         if (_pollingInterval) clearInterval(_pollingInterval);
         _pollingInterval = setInterval(async () => {
+          if (isDownloading) return; // Stop polling while downloading
+
           if (_oCharaWrite) {
              try {
                // Command: Get Latest Data [0x02, 0x01]
@@ -194,6 +209,54 @@
         document.getElementById("val_batt").innerText = level + " %";
       }
 
+      async function startDownload() {
+        if (!_oCharaWrite) return;
+        if (isDownloading) return;
+
+        const pageSelect = document.getElementById("page_selector").value;
+        downloadTargetPage = parseInt(pageSelect); // -1 or 0-4
+
+        isDownloading = true;
+        flashDataLog = [];
+        
+        // Init Cursor
+        if (downloadTargetPage === -1) {
+             downloadCursor = { page: 0, index: 0 };
+        } else {
+             downloadCursor = { page: downloadTargetPage, index: 0 };
+        }
+
+        document.getElementById("download_progress").style.width = "0%";
+        document.getElementById("download_status").innerText = "ダウンロード準備中...";
+        document.getElementById("download_area").classList.remove("hidden");
+        // Hide Save Button until finished
+        document.getElementById("btn_save_flash").classList.add("hidden");
+        
+        // Request first record
+        requestNextRecord();
+      }
+
+      async function requestNextRecord() {
+        if (!isDownloading) return;
+
+        // Command: Get Stored Data [0x02, 0x00, Page, IndexLow, IndexHigh]
+        const cmd = new Uint8Array(5);
+        cmd[0] = 0x02;
+        cmd[1] = 0x00;
+        cmd[2] = downloadCursor.page;
+        cmd[3] = downloadCursor.index & 0xFF;
+        cmd[4] = (downloadCursor.index >> 8) & 0xFF;
+
+        try {
+           await _oCharaWrite.writeValue(cmd);
+           // Timeout handling if no response comes back could be added here
+        } catch(e) {
+           console.error("Download Request Error", e);
+           isDownloading = false;
+           alert("ダウンロード中にエラーが発生しました");
+        }
+      }
+
       function onRecvSensorData(event) {
         const value = event.target.value;
         const dataView = new DataView(value.buffer);
@@ -202,9 +265,17 @@
         if (dataView.getUint8(0) !== 0x82) return;
         const type = dataView.getUint8(1);
 
-        // Type 0x01: Sensor Data (30 bytes)
-        // [Head(2), Time(4), AccSum(20), ObjTmp(2), EnvTmp(2)]
+        // Type 0x01: Live Sensor Data (30 bytes)
         if (type === 0x01 && value.byteLength >= 30) {
+           parseLiveData(dataView);
+        }
+        // Type 0x00: Stored Flash Data (33 bytes)
+        else if (type === 0x00 && value.byteLength >= 33) {
+           parseStoredData(dataView);
+        }
+      }
+
+      function parseLiveData(dataView) {
           const timestamp = dataView.getUint32(2, true);
           
           // Acc Data (10 x uint16)
@@ -212,27 +283,23 @@
           for(let i=0; i<10; i++) {
              accSum += dataView.getUint16(6 + i*2, true);
           }
-          const accAvg = accSum / 10.0; // Simple average for display
+          const accAvg = accSum / 10.0; 
 
-          // Temperature (int16 / 100.0)
+          // Temperature
           const tmpObj = dataView.getInt16(26, true) / 100.0;
           const tmpEnv = dataView.getInt16(28, true) / 100.0;
 
-          // Check for error values (Absolute Zero approx -273.15)
           const isError = (tmpEnv < -200.0 || tmpObj < -200.0);
 
           if (!isError) {
              const timeStr = new Date(timestamp * 1000).toLocaleTimeString();
-             // Update UI
              document.getElementById("val_temp_env").innerText = tmpEnv.toFixed(2) + " ℃";
              document.getElementById("val_temp_obj").innerText = tmpObj.toFixed(2) + " ℃";
              document.getElementById("val_acc").innerText = accAvg.toFixed(2);
              document.getElementById("val_time").innerText = timeStr;
 
-             // Update Chart
              updateChart(timeStr, tmpEnv, tmpObj, accAvg);
 
-             // Log Data
              const record = {
                 time: new Date(timestamp * 1000).toISOString(),
                 timestamp: timestamp,
@@ -242,13 +309,95 @@
              };
              dataLog.push(record);
              addLogTable(record);
-          } else {
-             console.warn("Sensor Error Detect: ", tmpEnv, tmpObj);
-             // Optionally show Error in UI
-             document.getElementById("val_temp_env").innerText = "Error";
-             document.getElementById("val_temp_obj").innerText = "Error";
           }
-        }
+      }
+
+      function parseStoredData(dataView) {
+          if (!isDownloading) return;
+
+          const page = dataView.getUint8(2);
+          const index = dataView.getUint16(3, true);
+          
+          // Check if it matches requested (Simple validity check)
+          if (page !== downloadCursor.page || index !== downloadCursor.index) {
+             console.warn("Mismatch response");
+             // Retry? or Ignore
+          }
+
+          // Parse Data payload starts at index 5
+          // Payload Structure: [Time(4), AccSum(20), ObjTmp(2), EnvTmp(2)]
+          const b5 = dataView.getUint8(5);
+          const b6 = dataView.getUint8(6);
+          const b7 = dataView.getUint8(7);
+          const b8 = dataView.getUint8(8);
+
+          // Check if bytes 5-8 are 0xFF (Empty/Uninitialized)
+          if (b5 === 0xFF && b6 === 0xFF && b7 === 0xFF && b8 === 0xFF) {
+              console.log("Found empty record (0xFFFFFFFF). Stopping download.");
+              finishDownload();
+              return;
+          }
+
+          const timestamp = dataView.getUint32(5, true);
+
+          let accSum = 0;
+          for(let i=0; i<10; i++) {
+             accSum += dataView.getUint16(9 + i*2, true);
+          }
+          const accAvg = accSum / 10.0; 
+
+          const tmpObj = dataView.getInt16(29, true) / 100.0;
+          const tmpEnv = dataView.getInt16(31, true) / 100.0;
+
+          const record = {
+             page: page,
+             index: index,
+             time: new Date(timestamp * 1000).toISOString(),
+             timestamp: timestamp,
+             tmpEnv: tmpEnv,
+             tmpObj: tmpObj,
+             accAvg: accAvg
+          };
+
+          flashDataLog.push(record);
+          
+          // Update Progress
+          const totalRecords = NUM_PAGES * RECORDS_PER_PAGE; 
+          const currentCount = flashDataLog.length;
+          const percent = Math.min(100, (currentCount / 1000) * 100); // Just visual feedback, we don't know total valid records easily
+          document.getElementById("download_status").innerText = `受信中... ${currentCount}件`;
+          
+          // Next Record
+          downloadCursor.index++;
+          if (downloadCursor.index >= RECORDS_PER_PAGE) {
+             // End of Page
+             downloadCursor.index = 0;
+             
+             if (downloadTargetPage !== -1) {
+                 // Single Page Mode -> Finish
+                 finishDownload();
+                 return;
+             } else {
+                 // All Pages Mode -> Next Page
+                 downloadCursor.page++;
+             }
+          }
+
+          if (downloadCursor.page >= NUM_PAGES) {
+             finishDownload();
+          } else {
+             // Request next
+             // Use setTimeout to allow UI update and prevent flooding if too fast
+             setTimeout(requestNextRecord, 5); 
+          }
+      }
+
+      function finishDownload() {
+         isDownloading = false;
+         document.getElementById("download_status").innerText = `完了: ${flashDataLog.length}件`;
+         document.getElementById("download_progress").style.width = "100%";
+         alert(`ダウンロード完了: ${flashDataLog.length}件のデータを取得しました。CSV保存ボタンを押してください。`);
+         document.getElementById("btn_save_flash").classList.remove("hidden");
       }
 
       function addLogTable(record) {
@@ -287,11 +436,28 @@
           csv += `${row.time},${row.timestamp},${row.tmpEnv},${row.tmpObj},${row.accAvg}\n`;
         });
         
-        const blob = new Blob([csv], { type: "text/csv" });
+        saveCSV(csv, "sensor_data.csv");
+      }
+
+      function exportFlashCSV() {
+        if (flashDataLog.length === 0) {
+          alert("ダウンロードされたデータがありません");
+          return;
+        }
+        let csv = "Page,Index,Time,Timestamp,EnvTemp,ObjTemp,AccAvg\n";
+        flashDataLog.forEach(row => {
+          csv += `${row.page},${row.index},${row.time},${row.timestamp},${row.tmpEnv},${row.tmpObj},${row.accAvg}\n`;
+        });
+        
+        saveCSV(csv, "flash_data.csv");
+      }
+
+      function saveCSV(content, filename) {
+        const blob = new Blob([content], { type: "text/csv" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = "sensor_data.csv";
+        a.download = filename;
         a.click();
         URL.revokeObjectURL(url);
       }
@@ -344,9 +510,25 @@
           現在時刻同期
         </button>
         <button onclick="exportCSV()" class="bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded">
-          CSVエクスポート
+          ライブCSV保存
         </button>
         
+        <div class="h-8 border-l border-gray-300 mx-2"></div>
+         
+        <div class="flex items-center gap-2">
+            <select id="page_selector" class="border rounded px-2 py-2 text-gray-700 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500">
+                <option value="-1">All Pages</option>
+                <option value="0">Page 0</option>
+                <option value="1">Page 1</option>
+                <option value="2">Page 2</option>
+                <option value="3">Page 3</option>
+                <option value="4">Page 4</option>
+            </select>
+            <button id="btn_download" onclick="startDownload()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded disabled:bg-gray-400" disabled>
+            内部メモリ取得
+            </button>
+        </div>
+
         <div class="flex items-center gap-2 ml-auto">
           <label for="chart_window" class="text-sm font-semibold text-gray-600">グラフ表示期間:</label>
           <select id="chart_window" class="border rounded px-2 py-2 text-gray-700 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -360,6 +542,20 @@
             <option value="43200">12時間</option>
           </select>
         </div>
+      </div>
+      
+      <!-- Download Status -->
+      <div id="download_area" class="bg-white p-4 rounded-lg shadow mb-6 hidden">
+        <div class="flex justify-between items-center mb-2">
+            <span class="font-bold text-gray-700">ダウンロード状況:</span>
+            <span id="download_status">--</span>
+        </div>
+        <div class="w-full bg-gray-200 rounded-full h-2.5 mb-2">
+          <div id="download_progress" class="bg-purple-600 h-2.5 rounded-full" style="width: 0%"></div>
+        </div>
+        <button id="btn_save_flash" onclick="exportFlashCSV()" class="text-sm bg-blue-500 text-white px-3 py-1 rounded hidden hover:bg-blue-600">
+            CSV保存
+        </button>
       </div>
 
       <!-- Chart -->
