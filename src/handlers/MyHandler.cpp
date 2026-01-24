@@ -170,7 +170,7 @@ EventHandler state_transition_table[STATE_MAX][EVT_MAX] = {
     // 順番間違えないように!!
     // WAIT_STATE
     {
-        handler_wait_nop,                     // EVT_NOP
+        [EVT_NOP] = handler_wait_nop,         // EVT_NOP
         handler_wait_ble_connected,           // EVT_BLE_CONNECTED
         handler_wait_ble_disconnected,        // EVT_BLE_DISCONNECTED
         handler_wait_cmd_meas_start,          // EVT_BLE_CMD_MEAS_START

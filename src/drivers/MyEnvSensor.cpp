@@ -5,14 +5,31 @@ MyEnvSensor::MyEnvSensor() {}
 
 MyEnvSensor::~MyEnvSensor() {}
 
-void MyEnvSensor::initialize() { Wire.begin(); }
+void MyEnvSensor::initialize()
+{
+  Wire.begin();
 
-void MyEnvSensor::getValue() {
+  Wire.beginTransmission(MLX90614_ADDRESS);
+  Wire.write(0xFF);
+  Wire.write(0xE8);
+  Wire.endTransmission();
+
+  // 2. SCLラインをLowに落としてスリープを確定させる
+  // Wireライブラリを一度終了し、ピン操作を行う
+  Wire.end();
+  pinMode(D5, OUTPUT);
+  digitalWrite(D5, LOW);
+}
+
+void MyEnvSensor::getValue()
+{
   float temp;
-  if (GetTempFromMLX90614(MLX90614_ADDRESS, 'O', &temp)) {
+  if (GetTempFromMLX90614(MLX90614_ADDRESS, 'O', &temp))
+  {
     this->tmp_obj = temp;
   }
-  if (GetTempFromMLX90614(MLX90614_ADDRESS, 'A', &temp)) {
+  if (GetTempFromMLX90614(MLX90614_ADDRESS, 'A', &temp))
+  {
     this->tmp_env = temp;
   }
 }
@@ -25,7 +42,8 @@ void MyEnvSensor::getValue() {
  *     *array : address of array to contain data               *
  *     return : true if success, false if failed               *
  **************************************************************/
-bool MyEnvSensor::ReadFromMLX90614(char addr, char cmd, char *arry) {
+bool MyEnvSensor::ReadFromMLX90614(char addr, char cmd, char *arry)
+{
   char i;
 
   Wire.beginTransmission(addr); // start recieve process
@@ -36,11 +54,13 @@ bool MyEnvSensor::ReadFromMLX90614(char addr, char cmd, char *arry) {
 
   // No retry/blocking loop. If data isn't ready immediately, treat as fail.
   // The user prioritizes non-blocking over guaranteed read.
-  if (Wire.available() < 3) {
+  if (Wire.available() < 3)
+  {
     return false;
   }
 
-  for (i = 0; i < 2; i++) {
+  for (i = 0; i < 2; i++)
+  {
     arry[i] = Wire.read(); // read data
   }
   Wire.read();            // pec byte
@@ -58,21 +78,24 @@ bool MyEnvSensor::ReadFromMLX90614(char addr, char cmd, char *arry) {
  *      return                                    *
  *        true if success                         *
  *************************************************/
-bool MyEnvSensor::GetTempFromMLX90614(char addr, char type, float *value) {
+bool MyEnvSensor::GetTempFromMLX90614(char addr, char type, float *value)
+{
   int tmp;
   char cmd;
   char dat[2];
   float temp;
 
   cmd = (type == 'O' || type == 'o') ? (0x07) : (0x06); // determin command
-  if (!ReadFromMLX90614(addr, cmd, dat)) {
+  if (!ReadFromMLX90614(addr, cmd, dat))
+  {
     return false; // Read failed
   }
 
   tmp = (dat[1] << 8) + dat[0]; // to temperature in marge two bytes
 
   // Check for Invalid Zero Reading (Communication Error)
-  if (tmp == 0) {
+  if (tmp == 0)
+  {
     return false;
   }
 
