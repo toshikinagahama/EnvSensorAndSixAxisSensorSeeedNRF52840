@@ -16,6 +16,6 @@ void notifyTimestamp();
 typedef MyState (*EventHandler)(void *payload);
 
 // 外部宣言
-extern EventHandler state_transition_table[STATE_MAX][EVT_MAX];
+extern EventHandler state_handler_table[STATE_MAX][EVT_MAX];
 
 #endif // MYHANDLER_H

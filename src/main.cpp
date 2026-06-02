@@ -113,12 +113,12 @@ void setup()
 
 void loop()
 {
-  timer_update();                                                 // タイマーの更新
-  button_update();                                                // ボタンの更新
-  ble_update();                                                   // BLEの更新
-  MyEvent event = dequeue();                                      // イベントキューからイベントを取得
-  EventHandler handler = state_transition_table[state][event.id]; // 状態遷移テーブルからハンドラを取得
-  state = handler(&event.payload);                                // イベントハンドラを呼び出す
-  ui_update();                                                    // 状態に応じて表示を更新 ※handlerの中で表示を更新してもいいが、ここでやる
-  delayMicroseconds(1);                                           // ディレイ
+  timer_update();                                              // タイマーの更新
+  button_update();                                             // ボタンの更新
+  ble_update();                                                // BLEの更新
+  MyEvent event = dequeue();                                   // イベントキューからイベントを取得
+  EventHandler handler = state_handler_table[state][event.id]; // 状態遷移テーブルからハンドラを取得
+  state = handler(&event.payload);                             // イベントハンドラを呼び出す
+  ui_update();                                                 // 状態に応じて表示を更新 ※handlerの中で表示を更新してもいいが、ここでやる
+  delayMicroseconds(1);                                        // ディレイ
 }

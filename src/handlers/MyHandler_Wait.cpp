@@ -115,12 +115,12 @@ MyState handler_wait_cmd_get_latest_data(void *payload)
   val[23] = uint8_t(acc_comp_sum[8] >> 8);
   val[24] = uint8_t(acc_comp_sum[9] >> 0);
   val[25] = uint8_t(acc_comp_sum[9] >> 8);
-  int iTmpObj = (int)(envSensor->tmp_obj * 100);
-  int iTmpEnv = (int)(envSensor->tmp_env * 100);
-  val[26] = uint8_t(iTmpObj >> 0);
-  val[27] = uint8_t(iTmpObj >> 8);
-  val[28] = uint8_t(iTmpEnv >> 0);
-  val[29] = uint8_t(iTmpEnv >> 8);
+  int iTemp = (int)(envSensor->temp * 100);
+  int iHum = (int)(envSensor->hum * 100);
+  val[26] = uint8_t(iTemp >> 0);
+  val[27] = uint8_t(iTemp >> 8);
+  val[28] = uint8_t(iHum >> 0);
+  val[29] = uint8_t(iHum >> 8);
   ble->SENSOR_TX_Chara->writeValue(val, 30); // 30バイトの値を送信
   return STATE_WAIT;
 }
