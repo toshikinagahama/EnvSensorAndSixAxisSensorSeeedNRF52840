@@ -118,7 +118,16 @@ void setup()
 void loop()
 {
   MyEvent event = dequeue();
-  EventHandler handler = state_handler_table[state][event.id]; // 状態遷移テーブルからハンドラを取得
-  state = handler(&event.payload);                             // イベントハンドラを呼び出す
-  ui_update();                                                 // 状態に応じて表示を更新
+  if (state < STATE_MAX && event.id < EVT_MAX)
+  {
+    // ガード
+    EventHandler handler = state_handler_table[state][event.id]; // 状態遷移テーブルからハンドラを取得
+    // 2. ハンドラがNULLでないか（ちゃんと登録されているか）をガード！
+    if (handler != NULL)
+    {
+      // 安全が確認できたので実行し、次の状態（戻り値）で上書きする
+      state = handler(&event.payload);
+    }
+  }
+  ui_update(); // 状態に応じて表示を更新
 }
