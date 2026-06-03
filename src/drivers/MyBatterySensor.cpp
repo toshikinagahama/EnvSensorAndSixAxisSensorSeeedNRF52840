@@ -3,7 +3,7 @@
 #include <nrfx_saadc.h>
 
 void MyBatterySensor::initialize() {
-  analogReference(0);       // 0はAR_VDDで3.3V
+  analogReference(AR_VDD4);       // AR_VDD4はVDD/4基准 (0-VDD, 3.3V)
   analogReadResolution(10); // 10bit A/D
   pinMode(this->PIN_WAKEUP, OUTPUT);
   digitalWrite(this->PIN_WAKEUP, LOW);

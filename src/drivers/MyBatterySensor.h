@@ -5,9 +5,9 @@
 class MyBatterySensor {
 
 private:
-  const uint8_t PIN_WAKEUP = P0_14;
+  const uint8_t PIN_WAKEUP = 14;
   const uint8_t PIN_READ = PIN_VBAT;
-  const uint8_t PIN_CHARGE_HIGH = P0_13;
+  const uint8_t PIN_CHARGE_HIGH = 13;
 
 public:
   float raw_vol = 0.0;
