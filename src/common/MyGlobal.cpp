@@ -89,10 +89,12 @@ void enqueue(MyEventID id, const uint8_t *payload, size_t length)
 {
   init_event_queue();
 
-  if (id != 15)
+  if (id != EVT_TIMER1_TIMEOUT)
   {
-    Serial.print("Enqueue event: ");
-    Serial.println(getEventName(id));
+    // デバッグ用のログ出力（タイマーイベント以外はログを出す）
+    // ただクラッシュする可能性あるので注意
+    // Serial.print("Enqueue event: ");
+    // Serial.println(getEventName(id));
   }
 
   MyEvent event;
