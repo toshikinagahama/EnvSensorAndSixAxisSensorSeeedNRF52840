@@ -216,7 +216,6 @@ MyState handler_wait_timer1_timeout(void *payload)
 
 MyState handler_wait_timer2_timeout(void *payload)
 {
-  // Timer2 is 5s, not used for WAIT logic anymore (aligned to Timer3)
   return STATE_WAIT;
 }
 
@@ -224,5 +223,6 @@ MyState handler_wait_timer3_timeout(void *payload)
 {
   envSensor->getValue();
   display->update();
+  ble->Battery_chara->writeValue((batterySensor->getValue()));
   return STATE_WAIT;
 }
