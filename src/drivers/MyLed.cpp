@@ -7,7 +7,7 @@ MyLed::~MyLed() {}
 // 255 = OFF (Active Low), 0 = MAX Brightness
 // 250 is very dim (low duty cycle)
 #define LED_OFF 255
-#define LED_ON_DIM 250
+#define LED_ON_DIM 50
 
 /**
  * @brief 初期化関数
