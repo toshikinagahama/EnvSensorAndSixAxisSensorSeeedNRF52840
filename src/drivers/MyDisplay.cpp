@@ -14,21 +14,20 @@ MyDisplay::~MyDisplay() {}
  */
 void MyDisplay::initialize()
 {
-  this->cycleCnt = 0;
-  this->display = new Adafruit_SSD1306(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire);
-  if (!this->display->begin(SSD1306_SWITCHCAPVCC, 0x3C))
-  {
-    for (;;)
-      ; // Don't proceed, loop forever
-  }
-  this->display->clearDisplay(); // 画面描写エリアを削除。
-  this->display->setTextColor(WHITE);
-  this->display->dim(true); // Reduce brightness for power saving
-  this->display
-      ->display(); // 画面描写エリアをディスプレイに転送。ここで全画面を削除。
-  delay(500);      // 1秒待機
+  // this->cycleCnt = 0;
+  // this->display = new Adafruit_SSD1306(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire);
+  // if (!this->display->begin(SSD1306_SWITCHCAPVCC, 0x3C))
+  // {
+  //   Serial.println("Warning: SSD1306 Display initialization failed!");
+  // }
+  // this->display->clearDisplay(); // 画面描写エリアを削除。
+  // this->display->setTextColor(WHITE);
+  // this->display->dim(true); // Reduce brightness for power saving
+  // this->display
+  //     ->display(); // 画面描写エリアをディスプレイに転送。ここで全画面を削除。
+  // delay(500);      // 1秒待機
 
-  //  this->display->ssd1306_command(SSD1306_DISPLAYOFF); // Display OFF to save power
+  // //  this->display->ssd1306_command(SSD1306_DISPLAYOFF); // Display OFF to save power
 }
 
 void MyDisplay::update()
