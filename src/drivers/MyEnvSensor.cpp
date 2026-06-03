@@ -1,5 +1,5 @@
 #include "MyEnvSensor.h"
-#include "global.h"
+#include "MyGlobal.h"
 
 MyEnvSensor::MyEnvSensor() {}
 
