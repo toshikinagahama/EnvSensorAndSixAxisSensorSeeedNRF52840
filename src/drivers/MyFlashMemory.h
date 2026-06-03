@@ -176,24 +176,21 @@ static nrfx_err_t QSPI_Initialise()
   // Setup QSPI to allow for DPM but with it turned off
   QSPIConfig.prot_if.dpmconfig = true;
   NRF_QSPI->DPMDUR = (QSPI_DPM_ENTER << 16) | QSPI_DPM_EXIT; // Found this on the Nordic Q&A pages, Sets the Deep power-down mode timer
-  Error_Code = 1;
-  while (Error_Code != 0)
+  nrfx_qspi_uninit();
+  Error_Code = nrfx_qspi_init(&QSPIConfig, NULL, NULL);
+  if (Error_Code != NRFX_SUCCESS)
   {
-    Error_Code = nrfx_qspi_init(&QSPIConfig, NULL, NULL);
-    if (Error_Code != NRFX_SUCCESS)
+    if (Debug_On)
     {
-      if (Debug_On)
-      {
-        Serial.print("(QSPI_Initialise) nrfx_qspi_init returned : ");
-        Serial.println(Error_Code);
-      }
+      Serial.print("(QSPI_Initialise) nrfx_qspi_init returned : ");
+      Serial.println(Error_Code);
     }
-    else
+  }
+  else
+  {
+    if (Debug_On)
     {
-      if (Debug_On)
-      {
-        Serial.println("(QSPI_Initialise) nrfx_qspi_init successful");
-      }
+      Serial.println("(QSPI_Initialise) nrfx_qspi_init successful");
     }
   }
   QSPI_Status("QSPI_Initialise (Before QSIP_Configure_Memory)");
