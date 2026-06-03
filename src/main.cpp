@@ -1,12 +1,12 @@
 #include <Arduino.h>
 #include <nrfx_gpiote.h>
 #include <nrf52840.h>
-#include "global.h"
+#include "MyGlobal.h"
 #include "MyTimer.h"
 #include "MyHandler.h"
 #include "MyButton.h"
 #include "MyFlashMemory.h"
-#include <Adafruit_SSD1306.h>
+// #include <Adafruit_SSD1306.h>
 
 MyState state;
 
@@ -58,14 +58,7 @@ void getTimestamp()
 
 void ble_update()
 {
-  central = BLE.central();
-  if (central && central.connected())
-  {
-  }
-  else
-  {
-    ble->poll();
-  }
+  // Bluefruit handles polling automatically in the background
 }
 
 void ui_update()
@@ -73,7 +66,7 @@ void ui_update()
   switch (state)
   {
   case STATE_WAIT:
-    if (central && central.connected())
+    if (ble->isConnect)
     {
       if (sys->timestamp == 0)
         led->setLEDRGB(false, true, false);
@@ -89,7 +82,7 @@ void ui_update()
     }
     break;
   case STATE_MEAS:
-    if (central && central.connected())
+    if (ble->isConnect)
       led->redBlink(100, 1000);
     else
       led->redBlink(100, 2000);
@@ -108,30 +101,24 @@ void setup()
   led->initialize();
   NRF_POWER->RESETREAS = NRF_POWER->RESETREAS;
   button_initialize(); // ボタンはクラスにしたかったが、割り込み関数は静的じゃないといけないので、関数化してる。initializeで割り込みしてる
+  timer_initialize();  // タイマーの初期化
+  sensor->initialize();
+  envSensor->initialize();
   ble->initialize();
-  // ble->advertiseStart();
-  // sensor->initialize();
-  // envSensor->initialize();
-  // flashmemory_initialize(); // フラッシュメモリの初期化
-  // initTimestamp();          // タイムスタンプの初期化
-  // timer_initialize();       // タイマーの初期化
-  // setVersion();
-  // getTimestamp();
+  ble->advertiseStart();
+  flashmemory_initialize(); // フラッシュメモリの初期化
+  initTimestamp();          // タイムスタンプの初期化
+  setVersion();
+  getTimestamp();
   // display->initialize(); // ディスプレイの初期化
 
-  // state = STATE_WAIT;
-  // sensor->sleep(); // センサーをスリープ状態にする
+  state = STATE_WAIT;
 }
 
 void loop()
 {
-  // timer_update();                                              // タイマーの更新
-  // button_update();                                             // ボタンの更新
-  // ble_update();                                                // BLEの更新
-  // MyEvent event = dequeue();                                   // イベントキューからイベントを取得
-  // EventHandler handler = state_handler_table[state][event.id]; // 状態遷移テーブルからハンドラを取得
-  // state = handler(&event.payload);                             // イベントハンドラを呼び出す
-  // ui_update();                                                 // 状態に応じて表示を更新 ※handlerの中で表示を更新してもいいが、ここでやる
-  delay(1000); // ディレイ
-  // delayMicroseconds(1); // ディレイ
+  MyEvent event = dequeue();
+  EventHandler handler = state_handler_table[state][event.id]; // 状態遷移テーブルからハンドラを取得
+  state = handler(&event.payload);                             // イベントハンドラを呼び出す
+  ui_update();                                                 // 状態に応じて表示を更新
 }
