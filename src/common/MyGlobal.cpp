@@ -1,16 +1,28 @@
 #include "MyGlobal.h"
+#include <FreeRTOS.h>
+#include <queue.h>
+#include <task.h>
 
 /********************/
 /*    内部定義      */
 /********************/
 
-MyEvent event_queue[QUEUE_SIZE]; // イベントキュー
-int head = 0;
-int tail = 0;
-int count = 0;
+static QueueHandle_t xEventQueue = NULL;
+
+static void init_event_queue()
+{
+  if (xEventQueue == NULL)
+  {
+    xEventQueue = xQueueCreate(QUEUE_SIZE, sizeof(MyEvent));
+  }
+}
 
 // キューが空かどうかをチェック
-int is_queue_empty(void) { return count == 0; }
+int is_queue_empty(void)
+{
+  init_event_queue();
+  return uxQueueMessagesWaiting(xEventQueue) == 0;
+}
 
 /********************/
 /*    外部定義      */
@@ -75,51 +87,53 @@ const char *getEventName(MyEventID id)
 // キューにイベントを追加
 void enqueue(MyEventID id, const uint8_t *payload, size_t length)
 {
+  init_event_queue();
 
   if (id != 15)
   {
     Serial.print("Enqueue event: ");
     Serial.println(getEventName(id));
   }
-  if (count < QUEUE_SIZE)
+
+  MyEvent event;
+  event.id = id;
+  if (payload == NULL)
   {
-    noInterrupts(); // Enter Critical Section
-    MyEvent event;
-    event.id = id;
-    if (payload == NULL)
-    {
-      memcpy(event.payload, DEFAULT_PAYLOAD, 1);
-    }
-    else
-    {
-      memcpy(event.payload, payload, length);
-    }
-    event.length = length;
-    event.timestamp = millis(); // タイムスタンプを現在のミリ秒に設定
-    event_queue[tail] = event;
-    tail = (tail + 1) % QUEUE_SIZE;
-    count++;
-    interrupts(); // Exit Critical Section
+    memcpy(event.payload, DEFAULT_PAYLOAD, 1);
   }
   else
   {
-    Serial.println("Queue is full!");
+    memcpy(event.payload, payload, length);
+  }
+  event.length = length;
+  event.timestamp = millis(); // タイムスタンプを現在のミリ秒に設定
+
+  // Check if we are in an Interrupt Service Routine (ISR)
+  if (__get_IPSR() != 0)
+  {
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+    xQueueSendToBackFromISR(xEventQueue, &event, &xHigherPriorityTaskWoken);
+    portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+  }
+  else
+  {
+    xQueueSendToBack(xEventQueue, &event, portMAX_DELAY);
   }
 }
 
-// キューからイベントを取り出す
+// キューからイベントを取り出す (イベントが空ならFreeRTOSにより呼び出し元のタスクが休止してCPUがスリープに入る)
 MyEvent dequeue(void)
 {
-  if (count > 0)
+  init_event_queue();
+  MyEvent event;
+
+  // portMAX_DELAYを設定することで、イベントが入るまで無期限でブロック（スリープ）する
+  if (xQueueReceive(xEventQueue, &event, portMAX_DELAY) == pdPASS)
   {
-    noInterrupts(); // Enter Critical Section
-    MyEvent event = event_queue[head];
-    head = (head + 1) % QUEUE_SIZE;
-    count--;
-    interrupts(); // Exit Critical Section
     return event;
   }
-  // キューが空の場合にEVT_NOPを返す
+
+  // フォールバック
   MyEvent empty_event;
   empty_event.id = EVT_NOP;
   empty_event.length = 0;
