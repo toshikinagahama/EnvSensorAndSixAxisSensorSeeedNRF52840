@@ -9,13 +9,13 @@ void MyEnvSensor::initialize()
 {
   Serial.println("Initializing MyEnvSensor...");
   Wire.begin();
-  while (!bme.begin(0x76))
+  if (!bme.begin(0x76))
   {
-    Serial.println("Could not find a valid BMP280 sensor, check wiring!");
+    Serial.println("Warning: Could not find a valid BMP280 sensor, check wiring!");
   }
-  while (!sht3x.begin(0x44))
+  if (!sht3x.begin(0x44))
   {
-    Serial.println("Could not find a valid SHT3X sensor, check wiring!");
+    Serial.println("Warning: Could not find a valid SHT3X sensor, check wiring!");
   }
 
   // Wire.beginTransmission(MLX90614_ADDRESS);
