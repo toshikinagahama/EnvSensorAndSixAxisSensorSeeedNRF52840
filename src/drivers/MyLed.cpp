@@ -112,15 +112,16 @@ void MyLed::redBlink(uint16_t interval_on, uint16_t interval_off)
   if (this->isRedOn && this->time_e - this->time_s > interval_on)
   {
     // 点灯している場合 -> オフにする
-    digitalWrite(LED_RED, HIGH);
+    // digitalWrite(LED_RED, HIGH);
+    analogWrite(LED_RED, LED_OFF);
     isRedOn = !isRedOn;
     this->time_s = this->time_e;
   }
   else if (!this->isRedOn && this->time_e - this->time_s > interval_off)
   {
     // 消灯している場合 -> オンにする (PWMで暗く)
-    // analogWrite(LED_RED, LED_ON_DIM);
-    digitalWrite(LED_RED, LOW);
+    analogWrite(LED_RED, LED_ON_DIM);
+    // digitalWrite(LED_RED, LOW);
     isRedOn = !isRedOn;
     this->time_s = this->time_e;
   }
@@ -142,15 +143,16 @@ void MyLed::greenBlink(uint16_t interval_on, uint16_t interval_off)
   if (this->isGreenOn && this->time_e - this->time_s > interval_on)
   {
     // 点灯している場合 -> オフ
-    digitalWrite(LED_GREEN, HIGH);
+    // digitalWrite(LED_GREEN, HIGH);
+    analogWrite(LED_GREEN, LED_OFF);
     isGreenOn = !isGreenOn;
     this->time_s = this->time_e;
   }
   else if (!this->isGreenOn && this->time_e - this->time_s > interval_off)
   {
     // 消灯している場合 -> オン (PWM)
-    // analogWrite(LED_GREEN, LED_ON_DIM);
-    digitalWrite(LED_GREEN, LOW);
+    analogWrite(LED_GREEN, LED_ON_DIM);
+    // digitalWrite(LED_GREEN, LOW);
     isGreenOn = !isGreenOn;
     this->time_s = this->time_e;
   }
@@ -171,17 +173,16 @@ void MyLed::blueBlink(uint16_t interval_on, uint16_t interval_off)
   if (this->isBlueOn && this->time_e - this->time_s > interval_on)
   {
     // 点灯 -> オフ
-    Serial.println("Blue OFF");
-    digitalWrite(LED_BLUE, HIGH);
+    // digitalWrite(LED_BLUE, HIGH);
+    analogWrite(LED_BLUE, LED_OFF);
     isBlueOn = !isBlueOn;
     this->time_s = this->time_e;
   }
   else if (!this->isBlueOn && this->time_e - this->time_s > interval_off)
   {
     // 消灯 -> オン (PWM)
-    Serial.println("Blue ON");
-    digitalWrite(LED_BLUE, LOW);
-    // analogWrite(LED_BLUE, LED_ON_DIM);
+    // digitalWrite(LED_BLUE, LOW);
+    analogWrite(LED_BLUE, LED_ON_DIM);
     isBlueOn = !isBlueOn;
     this->time_s = this->time_e;
   }
@@ -200,17 +201,35 @@ void MyLed::blueBlink(uint16_t interval_on, uint16_t interval_off)
 void MyLed::setLEDRGB(bool red, bool green, bool blue)
 {
   if (!red)
-    digitalWrite(LED_RED, HIGH);
+  {
+    analogWrite(LED_RED, LED_OFF);
+    // digitalWrite(LED_RED, HIGH);
+  }
   else
-    digitalWrite(LED_RED, LOW);
+  {
+    analogWrite(LED_RED, LED_ON_DIM);
+    // digitalWrite(LED_RED, LOW);
+  }
 
   if (!green)
-    digitalWrite(LED_GREEN, HIGH);
+  {
+    analogWrite(LED_GREEN, LED_OFF);
+    // digitalWrite(LED_GREEN, HIGH);
+  }
   else
-    digitalWrite(LED_GREEN, LOW);
+  {
+    analogWrite(LED_GREEN, LED_ON_DIM);
+    // digitalWrite(LED_GREEN, LOW);
+  }
 
   if (!blue)
-    digitalWrite(LED_BLUE, HIGH);
+  {
+    analogWrite(LED_BLUE, LED_OFF);
+    // digitalWrite(LED_BLUE, HIGH);
+  }
   else
-    digitalWrite(LED_BLUE, LOW);
+  {
+    analogWrite(LED_BLUE, LED_ON_DIM);
+    // digitalWrite(LED_BLUE, LOW);
+  }
 }

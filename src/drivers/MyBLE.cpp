@@ -149,6 +149,7 @@ void MyBLE::initialize()
     while (1)
       ;
   }
+  BLE.setAdvertisingInterval(1600);
   BLE.setConnectable(true); // 接続可能にする
   BLE.setPairable(true);    // ペアリング可能にする
   BLE.setEventHandler(BLEConnected, this->blePeripheralConnectHandler);

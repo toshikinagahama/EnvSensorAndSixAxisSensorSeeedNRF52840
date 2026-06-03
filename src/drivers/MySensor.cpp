@@ -25,6 +25,15 @@ void MySensor::initialize()
   // this->IMU->writeRegister(LSM6DS3_ACC_GYRO_CTRL8_XL, 0x09);
 }
 
+void MySensor::sleep()
+{
+  // 加速度センサーをパワーダウン (CTRL1_XL レジスタに 0x00 を書き込む)
+  this->IMU->writeRegister(LSM6DS3_ACC_GYRO_CTRL1_XL, 0x00);
+
+  // ジャイロセンサーをパワーダウン (CTRL2_G レジスタに 0x00 を書き込む)
+  this->IMU->writeRegister(LSM6DS3_ACC_GYRO_CTRL2_G, 0x00);
+}
+
 void MySensor::getValue()
 {
   this->acc_x = this->IMU->readFloatAccelX();

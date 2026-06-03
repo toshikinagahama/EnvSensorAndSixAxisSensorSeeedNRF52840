@@ -12,7 +12,7 @@ MyState state;
 
 void setVersion()
 {
-  uint8_t version[3] = {0, 0, 1};
+  uint8_t version[3] = {0, 0, 2};
   QSPI_Erase(ADDRESS_VERSION, NRF_QSPI_ERASE_LEN_4KB);
   QSPI_Write(&version[0], ADDRESS_MAJOR_VERSION, 1);
   QSPI_Write(&version[1], ADDRESS_MINOR_VERSION, 1);
@@ -32,10 +32,20 @@ void setVersion()
   //  Serial.println("");
 }
 
+void initTimestamp()
+{
+  uint32_t timestamp = 0;
+  QSPI_Erase(ADDRESS_TIMESTAMP, NRF_QSPI_ERASE_LEN_4KB);
+  QSPI_Write(&timestamp, ADDRESS_TIMESTAMP, sizeof(timestamp));
+  QSPI_WaitForReady();
+}
+
 void getTimestamp()
 {
   uint32_t *pBuf = (uint32_t *)&sys->timestamp;
   nrfx_qspi_read(pBuf, sizeof(sys->timestamp), ADDRESS_TIMESTAMP);
+  Serial.print("Timestamp :");
+  Serial.println(sys->timestamp);
   if (sys->timestamp == 0)
   {
     sys->is_set_timestamp = false;
@@ -99,26 +109,29 @@ void setup()
   NRF_POWER->RESETREAS = NRF_POWER->RESETREAS;
   button_initialize(); // ボタンはクラスにしたかったが、割り込み関数は静的じゃないといけないので、関数化してる。initializeで割り込みしてる
   ble->initialize();
-  ble->advertiseStart();
-  sensor->initialize();
-  envSensor->initialize();
-  flashmemory_initialize(); // フラッシュメモリの初期化
-  timer_initialize();       // タイマーの初期化
-  setVersion();
-  getTimestamp();
-  display->initialize(); // ディスプレイの初期化
+  // ble->advertiseStart();
+  // sensor->initialize();
+  // envSensor->initialize();
+  // flashmemory_initialize(); // フラッシュメモリの初期化
+  // initTimestamp();          // タイムスタンプの初期化
+  // timer_initialize();       // タイマーの初期化
+  // setVersion();
+  // getTimestamp();
+  // display->initialize(); // ディスプレイの初期化
 
-  state = STATE_WAIT;
+  // state = STATE_WAIT;
+  // sensor->sleep(); // センサーをスリープ状態にする
 }
 
 void loop()
 {
-  timer_update();                                              // タイマーの更新
-  button_update();                                             // ボタンの更新
-  ble_update();                                                // BLEの更新
-  MyEvent event = dequeue();                                   // イベントキューからイベントを取得
-  EventHandler handler = state_handler_table[state][event.id]; // 状態遷移テーブルからハンドラを取得
-  state = handler(&event.payload);                             // イベントハンドラを呼び出す
-  ui_update();                                                 // 状態に応じて表示を更新 ※handlerの中で表示を更新してもいいが、ここでやる
-  delayMicroseconds(1);                                        // ディレイ
+  // timer_update();                                              // タイマーの更新
+  // button_update();                                             // ボタンの更新
+  // ble_update();                                                // BLEの更新
+  // MyEvent event = dequeue();                                   // イベントキューからイベントを取得
+  // EventHandler handler = state_handler_table[state][event.id]; // 状態遷移テーブルからハンドラを取得
+  // state = handler(&event.payload);                             // イベントハンドラを呼び出す
+  // ui_update();                                                 // 状態に応じて表示を更新 ※handlerの中で表示を更新してもいいが、ここでやる
+  delay(1000); // ディレイ
+  // delayMicroseconds(1); // ディレイ
 }
