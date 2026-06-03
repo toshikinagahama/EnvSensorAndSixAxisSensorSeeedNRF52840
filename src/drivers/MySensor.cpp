@@ -12,11 +12,17 @@ MySensor::~MySensor()
 
 void MySensor::initialize()
 {
+  // Onboard IMU power control (needs to be enabled on Adafruit core)
+  pinMode(PIN_LSM6DS3TR_C_POWER, OUTPUT);
+  digitalWrite(PIN_LSM6DS3TR_C_POWER, HIGH);
+  delay(50); // Wait for sensor power to stabilize
+
   filter.begin(10);                    // 10Hzで初期化
   this->IMU->settings.gyroRange = 500; // そんなに激しい動きはしないので、500dpsで十分
   this->IMU->settings.accelRange = 4;  // そんなに激しい動きはしないので、4gで十分
   while (this->IMU->begin() != 0)
   {
+    Serial.println("Failed to initialize IMU!");
   }
   // this->IMU->writeRegister(LSM6DS3_ACC_GYRO_CTRL2_G, 0x8C);
   // this->IMU->writeRegister(LSM6DS3_ACC_GYRO_CTRL1_XL, 0x4A);
