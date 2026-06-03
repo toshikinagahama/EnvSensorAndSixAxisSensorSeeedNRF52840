@@ -2,7 +2,7 @@
 #include <Arduino.h>
 #include <nrf52840.h>
 #include <nrfx_gpiote.h>
-#include "global.h"
+#include "MyGlobal.h"
 
 unsigned long buttonA_press_time = 0;
 uint8_t buttonA_press_count = 0; // ボタンAの押下回数
@@ -20,19 +20,7 @@ void gpio_wakeup_handler(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action)
 // 復帰用のGPIOピンを設定する関数
 void setup_wakeup_gpio()
 {
-  if (!nrfx_gpiote_is_init())
-  {
-    nrfx_gpiote_init();
-  }
-
-  // HIGHからLOWへの変化（ボタン押下）で割り込みを発生
-  nrfx_gpiote_in_config_t in_config;
-  in_config.pull = NRF_GPIO_PIN_PULLUP;
-  in_config.is_watcher = false; // ウォッチャーモードは使用しない
-  in_config.sense = NRF_GPIOTE_POLARITY_HITOLO;
-
-  nrfx_gpiote_in_init(digitalPinToPinName(PIN_BUTTON_A), &in_config, gpio_wakeup_handler);
-  nrfx_gpiote_in_event_enable(digitalPinToPinName(PIN_BUTTON_A), true);
+  nrf_gpio_cfg_sense_input(digitalPinToPinName(PIN_BUTTON_A), NRF_GPIO_PIN_PULLUP, NRF_GPIO_PIN_SENSE_LOW);
 }
 
 /**
