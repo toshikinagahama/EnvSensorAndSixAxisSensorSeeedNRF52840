@@ -24,7 +24,6 @@ extern MyEnvSensor *envSensor;
 extern MyBatterySensor *batterySensor;
 extern MyLed *led;
 extern MyDisplay *display;
-extern BLEDevice central;
 extern MySys *sys;
 extern uint32_t CNT;
 // 関数

@@ -1,4 +1,4 @@
-#include "global.h"
+#include "MyGlobal.h"
 
 /********************/
 /*    内部定義      */
@@ -23,7 +23,6 @@ MyEnvSensor *envSensor = new MyEnvSensor();
 MyBatterySensor *batterySensor = new MyBatterySensor();
 MyLed *led = new MyLed();
 MyDisplay *display = new MyDisplay(); // ディスプレイ
-BLEDevice central;
 static const uint8_t DEFAULT_PAYLOAD[1] = {0x00};
 
 const char *getEventName(MyEventID id)
@@ -121,6 +120,9 @@ MyEvent dequeue(void)
     return event;
   }
   // キューが空の場合にEVT_NOPを返す
-  MyEvent empty_event = {.id = EVT_NOP, .length = 0, .timestamp = 0};
+  MyEvent empty_event;
+  empty_event.id = EVT_NOP;
+  empty_event.length = 0;
+  empty_event.timestamp = 0;
   return empty_event;
 }
