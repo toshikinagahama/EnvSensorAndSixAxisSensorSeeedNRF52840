@@ -1,7 +1,7 @@
 #include "MyHandler_Wait.h"
 #include "MyFlashMemory.h"
 #include "MyHandler.h"
-#include "global.h"
+#include "MyGlobal.h"
 #include <nrf_power.h>
 
 MyState handler_wait_nop(void *payload)

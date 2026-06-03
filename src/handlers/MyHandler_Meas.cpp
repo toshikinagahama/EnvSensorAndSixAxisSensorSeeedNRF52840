@@ -1,7 +1,7 @@
 #include "MyHandler_Meas.h"
 #include "MyFlashMemory.h"
 #include "MyHandler.h"
-#include "global.h"
+#include "MyGlobal.h"
 #include <nrf_power.h>
 
 MyState handler_meas_nop(void *payload) { return STATE_MEAS; }

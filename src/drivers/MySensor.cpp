@@ -1,5 +1,5 @@
 #include "MySensor.h"
-#include "global.h"
+#include "MyGlobal.h"
 
 MySensor::MySensor()
 {

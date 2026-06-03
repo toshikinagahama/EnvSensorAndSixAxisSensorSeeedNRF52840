@@ -1,5 +1,5 @@
 #include "MyDisplay.h"
-#include "global.h"
+#include "MyGlobal.h"
 #include <Adafruit_SSD1306.h>
 #include <func.h>
 #include <time.h>

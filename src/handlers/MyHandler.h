@@ -1,7 +1,7 @@
 #ifndef MYHANDLER_H
 #define MYHANDLER_H
 
-#include "global.h"
+#include "MyGlobal.h"
 #include <Arduino.h>
 
 // Shared helpers
