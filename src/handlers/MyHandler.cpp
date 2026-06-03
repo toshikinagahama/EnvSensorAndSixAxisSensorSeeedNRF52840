@@ -167,47 +167,92 @@ void notifyTimestamp()
  * 状態遷移ハンドラテーブル
  */
 EventHandler state_handler_table[STATE_MAX][EVT_MAX] = {
-    // 順番間違えないように!!
     // WAIT_STATE
-    {
-        [EVT_NOP] = handler_wait_nop,         // EVT_NOP
-        handler_wait_ble_connected,           // EVT_BLE_CONNECTED
-        handler_wait_ble_disconnected,        // EVT_BLE_DISCONNECTED
-        handler_wait_cmd_meas_start,          // EVT_BLE_CMD_MEAS_START
-        handler_wait_cmd_meas_stop,           // EVT_BLE_CMD_MEAS_STOP
-        handler_wait_cmd_get_device_info,     // EVT_BLE_CMD_GET_DEVICE_INFO
-        handler_wait_cmd_get_start_timestamp, // EVT_BLE_CMD_GET_START_TIMESTAMP
-        handler_wait_cmd_set_start_timestamp, // EVT_BLE_CMD_SET_START_TIMESTAMP
-        handler_wait_cmd_get_data_1_data,     // EVT_BLE_CMD_GET_DATA_1_DATA
-        handler_wait_cmd_get_latest_data,     // EVT_BLE_CMD_GET_LATEST_DATA
-        handler_wait_cmd_get_timestamp,       // EVT_BLE_CMD_GET_TIMESTAMP
-        handler_wait_cmd_get_data_page_no,    // EVT_BLE_CMD_GET_sys->data_page_no
-        handler_wait_button_a_short_pressed,  // EVT_BUTTON_A_SHORT_PRESSED
-        handler_wait_button_a_long1_pressed,  // EVT_BUTTON_A_LONG1_PRESSED
-        handler_wait_button_a_long2_pressed,  // EVT_BUTTON_A_LONG2_PRESSED
-        handler_wait_timer1_timeout,          // EVT_TIMER1_TIMEOUT
-        handler_wait_timer2_timeout,          // EVT_TIMER2_TIMEOUT
-        handler_wait_timer3_timeout,          // EVT_TIMER3_TIMEOUT
+    [STATE_WAIT] = {
+        [EVT_NOP] = handler_wait_nop,
+        [EVT_BLE_CONNECTED] = handler_wait_ble_connected,
+        [EVT_BLE_DISCONNECTED] = handler_wait_ble_disconnected,
+        [EVT_BLE_CMD_MEAS_START] = handler_wait_cmd_meas_start,
+        [EVT_BLE_CMD_MEAS_STOP] = handler_wait_cmd_meas_stop,
+        [EVT_BLE_CMD_GET_DEVICE_INFO] = handler_wait_cmd_get_device_info,
+        [EVT_BLE_CMD_GET_START_TIMESTAMP] = handler_wait_cmd_get_start_timestamp,
+        [EVT_BLE_CMD_SET_START_TIMESTAMP] = handler_wait_cmd_set_start_timestamp,
+        [EVT_BLE_CMD_GET_DATA_1_DATA] = handler_wait_cmd_get_data_1_data,
+        [EVT_BLE_CMD_GET_LATEST_DATA] = handler_wait_cmd_get_latest_data,
+        [EVT_BLE_CMD_GET_TIMESTAMP] = handler_wait_cmd_get_timestamp,
+        [EVT_BLE_CMD_GET_DATA_PAGE_NO] = handler_wait_cmd_get_data_page_no,
+        [EVT_BUTTON_A_SHORT_PRESSED] = handler_wait_button_a_short_pressed,
+        [EVT_BUTTON_A_LONG1_PRESSED] = handler_wait_button_a_long1_pressed,
+        [EVT_BUTTON_A_LONG2_PRESSED] = handler_wait_button_a_long2_pressed,
+        [EVT_TIMER1_TIMEOUT] = handler_wait_timer1_timeout,
+        [EVT_TIMER2_TIMEOUT] = handler_wait_timer2_timeout,
+        [EVT_TIMER3_TIMEOUT] = handler_wait_timer3_timeout,
     },
 
     // MEAS_STATE
-    {
-        handler_meas_nop,                     // EVT_NOP
-        handler_meas_ble_connected,           // EVT_BLE_CONNECTED
-        handler_meas_ble_disconnected,        // EVT_BLE_DISCONNECTED
-        handler_meas_cmd_meas_start,          // EVT_BLE_CMD_MEAS_START
-        handler_meas_cmd_meas_stop,           // EVT_BLE_CMD_MEAS_STOP
-        handler_meas_cmd_get_device_info,     // EVT_BLE_CMD_GET_DEVICE_INFO
-        handler_meas_cmd_get_start_timestamp, // EVT_BLE_CMD_GET_START_TIMESTAMP
-        handler_meas_cmd_set_start_timestamp, // EVT_BLE_CMD_SET_START_TIMESTAMP
-        handler_meas_cmd_get_data_1_data,     // EVT_BLE_CMD_GET_DATA_1_DATA
-        handler_meas_cmd_get_latest_data,     // EVT_BLE_CMD_GET_LATEST_DATA
-        handler_meas_cmd_get_timestamp,       // EVT_BLE_CMD_GET_TIMESTAMP
-        handler_meas_cmd_get_data_page_no,    // EVT_BLE_CMD_GET_sys->data_page_no
-        handler_meas_button_a_short_pressed,  // EVT_BUTTON_A_SHORT_PRESSED
-        handler_meas_button_a_long1_pressed,  // EVT_BUTTON_A_LONG1_PRESSED
-        handler_meas_button_a_long2_pressed,  // EVT_BUTTON_A_LONG2_PRESSED
-        handler_meas_timer1_timeout,          // EVT_TIMER1_TIMEOUT
-        handler_meas_timer2_timeout,          // EVT_TIMER2_TIMEOUT
-        handler_meas_timer3_timeout,          // EVT_TIMER3_TIMEOUT
+    [STATE_MEAS] = {
+        [EVT_NOP] = handler_meas_nop,
+        [EVT_BLE_CONNECTED] = handler_meas_ble_connected,
+        [EVT_BLE_DISCONNECTED] = handler_meas_ble_disconnected,
+        [EVT_BLE_CMD_MEAS_START] = handler_meas_cmd_meas_start,
+        [EVT_BLE_CMD_MEAS_STOP] = handler_meas_cmd_meas_stop,
+        [EVT_BLE_CMD_GET_DEVICE_INFO] = handler_meas_cmd_get_device_info,
+        [EVT_BLE_CMD_GET_START_TIMESTAMP] = handler_meas_cmd_get_start_timestamp,
+        [EVT_BLE_CMD_SET_START_TIMESTAMP] = handler_meas_cmd_set_start_timestamp,
+        [EVT_BLE_CMD_GET_DATA_1_DATA] = handler_meas_cmd_get_data_1_data,
+        [EVT_BLE_CMD_GET_LATEST_DATA] = handler_meas_cmd_get_latest_data,
+        [EVT_BLE_CMD_GET_TIMESTAMP] = handler_meas_cmd_get_timestamp,
+        [EVT_BLE_CMD_GET_DATA_PAGE_NO] = handler_meas_cmd_get_data_page_no,
+        [EVT_BUTTON_A_SHORT_PRESSED] = handler_meas_button_a_short_pressed,
+        [EVT_BUTTON_A_LONG1_PRESSED] = handler_meas_button_a_long1_pressed,
+        [EVT_BUTTON_A_LONG2_PRESSED] = handler_meas_button_a_long2_pressed,
+        [EVT_TIMER1_TIMEOUT] = handler_meas_timer1_timeout,
+        [EVT_TIMER2_TIMEOUT] = handler_meas_timer2_timeout,
+        [EVT_TIMER3_TIMEOUT] = handler_meas_timer3_timeout,
     }};
+
+// EventHandler state_handler_table[STATE_MAX][EVT_MAX] = {
+//     // 順番間違えないように!!
+//     // WAIT_STATE
+//     {
+//         [EVT_NOP] = handler_wait_nop,         // EVT_NOP
+//         handler_wait_ble_connected,           // EVT_BLE_CONNECTED
+//         handler_wait_ble_disconnected,        // EVT_BLE_DISCONNECTED
+//         handler_wait_cmd_meas_start,          // EVT_BLE_CMD_MEAS_START
+//         handler_wait_cmd_meas_stop,           // EVT_BLE_CMD_MEAS_STOP
+//         handler_wait_cmd_get_device_info,     // EVT_BLE_CMD_GET_DEVICE_INFO
+//         handler_wait_cmd_get_start_timestamp, // EVT_BLE_CMD_GET_START_TIMESTAMP
+//         handler_wait_cmd_set_start_timestamp, // EVT_BLE_CMD_SET_START_TIMESTAMP
+//         handler_wait_cmd_get_data_1_data,     // EVT_BLE_CMD_GET_DATA_1_DATA
+//         handler_wait_cmd_get_latest_data,     // EVT_BLE_CMD_GET_LATEST_DATA
+//         handler_wait_cmd_get_timestamp,       // EVT_BLE_CMD_GET_TIMESTAMP
+//         handler_wait_cmd_get_data_page_no,    // EVT_BLE_CMD_GET_sys->data_page_no
+//         handler_wait_button_a_short_pressed,  // EVT_BUTTON_A_SHORT_PRESSED
+//         handler_wait_button_a_long1_pressed,  // EVT_BUTTON_A_LONG1_PRESSED
+//         handler_wait_button_a_long2_pressed,  // EVT_BUTTON_A_LONG2_PRESSED
+//         handler_wait_timer1_timeout,          // EVT_TIMER1_TIMEOUT
+//         handler_wait_timer2_timeout,          // EVT_TIMER2_TIMEOUT
+//         handler_wait_timer3_timeout,          // EVT_TIMER3_TIMEOUT
+//     },
+//
+//     // MEAS_STATE
+//     {
+//         handler_meas_nop,                     // EVT_NOP
+//         handler_meas_ble_connected,           // EVT_BLE_CONNECTED
+//         handler_meas_ble_disconnected,        // EVT_BLE_DISCONNECTED
+//         handler_meas_cmd_meas_start,          // EVT_BLE_CMD_MEAS_START
+//         handler_meas_cmd_meas_stop,           // EVT_BLE_CMD_MEAS_STOP
+//         handler_meas_cmd_get_device_info,     // EVT_BLE_CMD_GET_DEVICE_INFO
+//         handler_meas_cmd_get_start_timestamp, // EVT_BLE_CMD_GET_START_TIMESTAMP
+//         handler_meas_cmd_set_start_timestamp, // EVT_BLE_CMD_SET_START_TIMESTAMP
+//         handler_meas_cmd_get_data_1_data,     // EVT_BLE_CMD_GET_DATA_1_DATA
+//         handler_meas_cmd_get_latest_data,     // EVT_BLE_CMD_GET_LATEST_DATA
+//         handler_meas_cmd_get_timestamp,       // EVT_BLE_CMD_GET_TIMESTAMP
+//         handler_meas_cmd_get_data_page_no,    // EVT_BLE_CMD_GET_sys->data_page_no
+//         handler_meas_button_a_short_pressed,  // EVT_BUTTON_A_SHORT_PRESSED
+//         handler_meas_button_a_long1_pressed,  // EVT_BUTTON_A_LONG1_PRESSED
+//         handler_meas_button_a_long2_pressed,  // EVT_BUTTON_A_LONG2_PRESSED
+//         handler_meas_timer1_timeout,          // EVT_TIMER1_TIMEOUT
+//         handler_meas_timer2_timeout,          // EVT_TIMER2_TIMEOUT
+//         handler_meas_timer3_timeout,          // EVT_TIMER3_TIMEOUT
+//     }};
