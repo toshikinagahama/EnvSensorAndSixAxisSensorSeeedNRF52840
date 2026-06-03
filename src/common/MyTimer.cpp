@@ -32,38 +32,21 @@ void timer_initialize()
  */
 void timer_update()
 {
-  // アップデート
-  if (timer1_flg == true)
-  {
-    timer1_flg = false;
-    enqueue(EVT_TIMER1_TIMEOUT, NULL, 0);
-  }
-
-  if (timer2_flg == true)
-  {
-    timer2_flg = false;
-    enqueue(EVT_TIMER2_TIMEOUT, NULL, 0);
-  }
-
-  if (timer3_flg == true)
-  {
-    timer3_flg = false;
-    enqueue(EVT_TIMER3_TIMEOUT, NULL, 0);
-  }
+  // No-op: Events are enqueued directly in the SoftwareTimer callbacks to support sleep mode.
 }
 
 void TimerHandler1(TimerHandle_t xTimerID)
 {
-  timer1_flg = true;
+  enqueue(EVT_TIMER1_TIMEOUT, NULL, 0);
   timer1_count++;
   if (timer1_count >= 10) // 1秒ごとにタイマー3のイベントを発生させる
   {
     timer1_count = 0;
-    timer3_flg = true;
+    enqueue(EVT_TIMER3_TIMEOUT, NULL, 0);
   }
 }
 
 void TimerHandler2(TimerHandle_t xTimerID)
 {
-  timer2_flg = true;
+  enqueue(EVT_TIMER2_TIMEOUT, NULL, 0);
 }

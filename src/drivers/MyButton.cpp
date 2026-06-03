@@ -34,30 +34,9 @@ void button_initialize()
   attachInterrupt(digitalPinToInterrupt(PIN_BUTTON_A), buttonA_ISR, CHANGE);
 }
 
-/**
- * @brief ボタンの更新関数
- *
- */
 void button_update()
 {
-  // アップデート
-  if (buttonA_short_press_detected == true)
-  {
-    buttonA_short_press_detected = false;
-    enqueue(EVT_BUTTON_A_SHORT_PRESSED, NULL, 0);
-  }
-
-  if (buttonA_long1_press_detected == true)
-  {
-    buttonA_long1_press_detected = false;
-    enqueue(EVT_BUTTON_A_LONG1_PRESSED, NULL, 0);
-  }
-
-  if (buttonA_long2_press_detected == true)
-  {
-    buttonA_long2_press_detected = false;
-    enqueue(EVT_BUTTON_A_LONG2_PRESSED, NULL, 0);
-  }
+  // No-op: Events are enqueued directly in the ISR to support sleep mode.
 }
 
 /**
@@ -82,16 +61,16 @@ void buttonA_ISR()
       {
         if (duration >= LONG2_PRESS_THRESHOLD_MS)
         {
-          buttonA_long2_press_detected = true; // 長押し2のイベント
+          enqueue(EVT_BUTTON_A_LONG2_PRESSED, NULL, 0); // 長押し2のイベント
         }
         else
         {
-          buttonA_long1_press_detected = true; // 長押し1のイベント
+          enqueue(EVT_BUTTON_A_LONG1_PRESSED, NULL, 0); // 長押し1のイベント
         }
       }
       else
       {
-        buttonA_short_press_detected = true;
+        enqueue(EVT_BUTTON_A_SHORT_PRESSED, NULL, 0);
       }
       buttonA_pressed = false; // フラグをリセット
     }
