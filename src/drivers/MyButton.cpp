@@ -34,11 +34,6 @@ void button_initialize()
   attachInterrupt(digitalPinToInterrupt(PIN_BUTTON_A), buttonA_ISR, CHANGE);
 }
 
-void button_update()
-{
-  // No-op: Events are enqueued directly in the ISR to support sleep mode.
-}
-
 /**
  * @brief ボタンA割り込み関数
  *

@@ -7,5 +7,4 @@
 
 extern void button_initialize();
 extern void buttonA_ISR();
-extern void button_update();
 #endif

@@ -7,5 +7,4 @@
 
 // 外部定義
 extern void timer_initialize();
-extern void timer_update();
 #endif

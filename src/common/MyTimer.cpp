@@ -26,15 +26,6 @@ void timer_initialize()
   ITimer2.start();
 }
 
-/**
- * @brief タイマーの更新関数
- *
- */
-void timer_update()
-{
-  // No-op: Events are enqueued directly in the SoftwareTimer callbacks to support sleep mode.
-}
-
 void TimerHandler1(TimerHandle_t xTimerID)
 {
   enqueue(EVT_TIMER1_TIMEOUT, NULL, 0);
