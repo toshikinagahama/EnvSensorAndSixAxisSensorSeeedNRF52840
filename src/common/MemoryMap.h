@@ -3,7 +3,7 @@
 
 #define ADDRESS_VERSION 0       // 機器のバージョン情報の先頭アドレス
 #define ADDRESS_MAJOR_VERSION 0 // 機器のMAJORバージョン情報を格納するアドレス
-#define ADDRESS_MINOR_VERSION 1 // 機器のMINORバージョン情報を格納するアドレス
+#define ADDRESS_MINOR_VERSION 2 // 機器のMINORバージョン情報を格納するアドレス
 #define ADDRESS_REVISION_VERSION \
   2                              // 機器のREVISIONバージョン情報を格納するアドレス
 #define ADDRESS_TIMESTAMP 4096   // タイムスタンプを格納するアドレス
