@@ -157,6 +157,8 @@ MyState handler_wait_button_a_short_pressed(void *payload)
   if (sys->is_set_timestamp)
   {
     // 測定へ移行
+    // LEDオフに
+    led->setLEDRGB(false, false, false);
     init_meas();
     return STATE_MEAS;
   }
@@ -187,12 +189,12 @@ MyState handler_wait_button_a_long1_pressed(void *payload)
 MyState handler_wait_button_a_long2_pressed(void *payload)
 {
   // displayオフにする
-  display->display
-      ->display(); // 画面描写エリアをディスプレイに転送。ここで全画面を削除。
-  display->display->clearDisplay();
-  display->display->ssd1306_command(SSD1306_DISPLAYOFF);
-  // deepsleepモードへ移行
-  NRF_POWER->SYSTEMOFF = 1;
+  // display->display
+  //     ->display(); // 画面描写エリアをディスプレイに転送。ここで全画面を削除。
+  // display->display->clearDisplay();
+  // display->display->ssd1306_command(SSD1306_DISPLAYOFF);
+  // // deepsleepモードへ移行
+  // NRF_POWER->SYSTEMOFF = 1;
   return STATE_WAIT;
 }
 
