@@ -26,7 +26,7 @@ void MyBatterySensor::initialize()
 uint8_t MyBatterySensor::getValue()
 {
   const int max_voltage_mv = 4200; // Fully charged LiPo (4.2V)
-  const int min_voltage_mv = 3100; // Empty LiPo (3.1V)
+  const int min_voltage_mv = 3400; // Empty LiPo (3.4V)
 
   // 1. Enable the voltage divider
   digitalWrite(this->PIN_WAKEUP, LOW);
