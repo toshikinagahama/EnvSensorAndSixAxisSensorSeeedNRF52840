@@ -68,14 +68,14 @@ void ui_update()
   case STATE_WAIT:
     if (ble->isConnect)
     {
-      if (sys->timestamp == 0)
+      if (sys->is_set_timestamp == false)
         led->setLEDRGB(false, true, false);
       else
         led->setLEDRGB(false, false, true);
     }
     else
     {
-      if (sys->timestamp == 0)
+      if (sys->is_set_timestamp == false)
         led->greenBlink(200, 1000); // タイムスタンプが0ならば、グリーン点滅
       else
         led->blueBlink(200, 1000); // タイムスタンプが0でなければ、ブルー点滅
