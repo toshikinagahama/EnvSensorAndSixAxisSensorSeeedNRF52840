@@ -1,7 +1,7 @@
 #include "MyHandler_Wait.h"
 #include "MyFlashMemory.h"
 #include "MyHandler.h"
-#include "global.h"
+#include "MyGlobal.h"
 #include <nrf_power.h>
 
 MyState handler_wait_nop(void *payload)
@@ -115,12 +115,12 @@ MyState handler_wait_cmd_get_latest_data(void *payload)
   val[23] = uint8_t(acc_comp_sum[8] >> 8);
   val[24] = uint8_t(acc_comp_sum[9] >> 0);
   val[25] = uint8_t(acc_comp_sum[9] >> 8);
-  int iTmpObj = (int)(envSensor->tmp_obj * 100);
-  int iTmpEnv = (int)(envSensor->tmp_env * 100);
-  val[26] = uint8_t(iTmpObj >> 0);
-  val[27] = uint8_t(iTmpObj >> 8);
-  val[28] = uint8_t(iTmpEnv >> 0);
-  val[29] = uint8_t(iTmpEnv >> 8);
+  int iTemp = (int)(envSensor->temp * 100);
+  int iHum = (int)(envSensor->hum * 100);
+  val[26] = uint8_t(iTemp >> 0);
+  val[27] = uint8_t(iTemp >> 8);
+  val[28] = uint8_t(iHum >> 0);
+  val[29] = uint8_t(iHum >> 8);
   ble->SENSOR_TX_Chara->writeValue(val, 30); // 30バイトの値を送信
   return STATE_WAIT;
 }
@@ -157,6 +157,8 @@ MyState handler_wait_button_a_short_pressed(void *payload)
   if (sys->is_set_timestamp)
   {
     // 測定へ移行
+    // LEDオフに
+    led->setLEDRGB(false, false, false);
     init_meas();
     return STATE_MEAS;
   }
@@ -187,12 +189,12 @@ MyState handler_wait_button_a_long1_pressed(void *payload)
 MyState handler_wait_button_a_long2_pressed(void *payload)
 {
   // displayオフにする
-  display->display
-      ->display(); // 画面描写エリアをディスプレイに転送。ここで全画面を削除。
-  display->display->clearDisplay();
-  display->display->ssd1306_command(SSD1306_DISPLAYOFF);
-  // deepsleepモードへ移行
-  NRF_POWER->SYSTEMOFF = 1;
+  // display->display
+  //     ->display(); // 画面描写エリアをディスプレイに転送。ここで全画面を削除。
+  // display->display->clearDisplay();
+  // display->display->ssd1306_command(SSD1306_DISPLAYOFF);
+  // // deepsleepモードへ移行
+  // NRF_POWER->SYSTEMOFF = 1;
   return STATE_WAIT;
 }
 
@@ -216,7 +218,6 @@ MyState handler_wait_timer1_timeout(void *payload)
 
 MyState handler_wait_timer2_timeout(void *payload)
 {
-  // Timer2 is 5s, not used for WAIT logic anymore (aligned to Timer3)
   return STATE_WAIT;
 }
 
@@ -224,5 +225,6 @@ MyState handler_wait_timer3_timeout(void *payload)
 {
   envSensor->getValue();
   display->update();
+  ble->Battery_chara->writeValue((batterySensor->getValue()));
   return STATE_WAIT;
 }

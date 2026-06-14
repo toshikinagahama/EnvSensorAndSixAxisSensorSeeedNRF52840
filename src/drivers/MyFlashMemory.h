@@ -1,13 +1,13 @@
 #include <Arduino.h>
 #include <nrf52840.h>
 #include "nrfx_qspi.h"
-#include "app_util_platform.h"
-#include "nrf_log.h"
-#include "nrf_log_ctrl.h"
-#include "nrf_log_default_backends.h"
-#include "sdk_config.h"
-#include "nrf_delay.h"
-#include "avr/interrupt.h"
+// #include "app_util_platform.h"
+// #include "nrf_log.h"
+// #include "nrf_log_ctrl.h"
+// #include "nrf_log_default_backends.h"
+// #include "sdk_config.h"
+// #include "nrf_delay.h"
+// #include "avr/interrupt.h"
 
 // QSPI Settings
 #define QSPI_STD_CMD_WRSR 0x01
@@ -147,10 +147,9 @@ static nrfx_err_t QSPI_Initialise()
 { // Initialises the QSPI and NRF LOG
   uint32_t Error_Code;
 
-  NRF_LOG_INIT(NULL); // Initialise the NRF Log
-  NRF_LOG_DEFAULT_BACKENDS_INIT();
-  // QSPI Config
-  QSPIConfig.xip_offset = NRFX_QSPI_CONFIG_XIP_OFFSET;
+  // NRF_LOG_INIT(NULL); // Initialise the NRF Log
+  // NRF_LOG_DEFAULT_BACKENDS_INIT();
+  QSPIConfig.xip_offset = 0;
   QSPIConfig.pins = {
       // Setup for the SEEED XIAO BLE - nRF52840
       .sck_pin = 21,
@@ -160,41 +159,38 @@ static nrfx_err_t QSPI_Initialise()
       .io2_pin = 22,
       .io3_pin = 23,
   };
-  QSPIConfig.irq_priority = (uint8_t)NRFX_QSPI_CONFIG_IRQ_PRIORITY;
+  QSPIConfig.irq_priority = 6;
   QSPIConfig.prot_if = {
       // .readoc     = (nrf_qspi_readoc_t)NRFX_QSPI_CONFIG_READOC,
       .readoc = (nrf_qspi_readoc_t)NRF_QSPI_READOC_READ4O,
       // .writeoc    = (nrf_qspi_writeoc_t)NRFX_QSPI_CONFIG_WRITEOC,
       .writeoc = (nrf_qspi_writeoc_t)NRF_QSPI_WRITEOC_PP4O,
-      .addrmode = (nrf_qspi_addrmode_t)NRFX_QSPI_CONFIG_ADDRMODE,
+      .addrmode = (nrf_qspi_addrmode_t)NRF_QSPI_ADDRMODE_24BIT,
       .dpmconfig = false,
   };
   QSPIConfig.phy_if.sck_freq = (nrf_qspi_frequency_t)NRF_QSPI_FREQ_32MDIV1; // I had to do it this way as it complained about nrf_qspi_phy_conf_t not being visible
   // QSPIConfig.phy_if.sck_freq   = (nrf_qspi_frequency_t)NRFX_QSPI_CONFIG_FREQUENCY;
-  QSPIConfig.phy_if.spi_mode = (nrf_qspi_spi_mode_t)NRFX_QSPI_CONFIG_MODE;
+  QSPIConfig.phy_if.spi_mode = (nrf_qspi_spi_mode_t)NRF_QSPI_MODE_0;
   QSPIConfig.phy_if.dpmen = false;
   // QSPI Config Complete
   // Setup QSPI to allow for DPM but with it turned off
   QSPIConfig.prot_if.dpmconfig = true;
   NRF_QSPI->DPMDUR = (QSPI_DPM_ENTER << 16) | QSPI_DPM_EXIT; // Found this on the Nordic Q&A pages, Sets the Deep power-down mode timer
-  Error_Code = 1;
-  while (Error_Code != 0)
+  nrfx_qspi_uninit();
+  Error_Code = nrfx_qspi_init(&QSPIConfig, NULL, NULL);
+  if (Error_Code != NRFX_SUCCESS)
   {
-    Error_Code = nrfx_qspi_init(&QSPIConfig, NULL, NULL);
-    if (Error_Code != NRFX_SUCCESS)
+    if (Debug_On)
     {
-      if (Debug_On)
-      {
-        Serial.print("(QSPI_Initialise) nrfx_qspi_init returned : ");
-        Serial.println(Error_Code);
-      }
+      Serial.print("(QSPI_Initialise) nrfx_qspi_init returned : ");
+      Serial.println(Error_Code);
     }
-    else
+  }
+  else
+  {
+    if (Debug_On)
     {
-      if (Debug_On)
-      {
-        Serial.println("(QSPI_Initialise) nrfx_qspi_init successful");
-      }
+      Serial.println("(QSPI_Initialise) nrfx_qspi_init successful");
     }
   }
   QSPI_Status("QSPI_Initialise (Before QSIP_Configure_Memory)");

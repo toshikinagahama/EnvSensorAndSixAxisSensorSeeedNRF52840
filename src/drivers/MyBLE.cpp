@@ -1,76 +1,66 @@
 #include "MyBLE.h"
-#include "global.h"
+#include "MyGlobal.h"
 
-MyBLE::MyBLE()
+// Connection callback
+void connect_callback(uint16_t conn_handle)
 {
-  // コンストラクタ
-  this->SENSOR_Service = new BLEService(BLE_SENSOR_SERVICE_UUID);
-  this->Battery_Service = new BLEService(BLE_BATTERY_SERVICE_UUID);
-  this->SENSOR_TX_Chara = new BLECharacteristic(BLE_SENSOR_TX_CHARA_UUID, BLENotify, 33);
-  this->SENSOR_RX_Chara = new BLECharacteristic(BLE_SENSOR_RX_CHARA_UUID, BLEWrite, 7);
-  this->Battery_chara = new BLEIntCharacteristic(BLE_BATTERY_CHARA_UUID, BLERead | BLENotify);
-  this->SENSOR_Descriptor = new BLEDescriptor(BLE_DESCRIPTOR_UUID, "SENSOR");
-  this->Battery_Descriptor = new BLEDescriptor(BLE_DESCRIPTOR_UUID, "Battery Level: 0 - 100");
+  BLEConnection *conn = Bluefruit.Connection(conn_handle);
+  char peer_addr[18] = {0};
+  if (conn)
+  {
+    ble_gap_addr_t addr = conn->getPeerAddr();
+    sprintf(peer_addr, "%02X:%02X:%02X:%02X:%02X:%02X",
+            addr.addr[5], addr.addr[4], addr.addr[3],
+            addr.addr[2], addr.addr[1], addr.addr[0]);
+  }
+  Serial.print("Connected event, central: ");
+  Serial.println(peer_addr);
+
+  if (ble)
+    ble->isConnect = true;
+  enqueue(EVT_BLE_CONNECTED, NULL, 0);
 }
 
-MyBLE::~MyBLE()
+// Disconnection callback
+void disconnect_callback(uint16_t conn_handle, uint8_t reason)
 {
-  // デストラクタ
-  delete this->SENSOR_Service;
-  delete this->Battery_Service;
-  delete this->SENSOR_TX_Chara;
-  delete this->SENSOR_RX_Chara;
-  delete this->Battery_chara;
-  delete this->Battery_Descriptor;
-  delete this->SENSOR_Descriptor;
+  Serial.print("Disconnected event, reason: 0x");
+  Serial.println(reason, HEX);
+  if (ble)
+    ble->isConnect = false;
+  enqueue(EVT_BLE_DISCONNECTED, NULL, 0);
 }
 
-void MyBLE::BatteryCharaReadHandler(BLEDevice central, BLECharacteristic chara)
+// Write callback for RX Characteristic
+void SensorCharaWrittenCallback(uint16_t conn_hdl, BLECharacteristic *chr, uint8_t *data, uint16_t len)
 {
-  // バッテリーチャラクタの読み取りハンドラ
-  uint8_t batteryLevel = batterySensor->getValue(); // 一旦。本当はイベントキューに入れないと。あんまりやりたくないけど、ここで直接取得
-  chara.writeValue(batteryLevel);
-}
-
-void MyBLE::SensorCharaWrittenHandler(BLEDevice central, BLECharacteristic chara)
-{
-  // 受け取ったメッセージごとに処理
-  // Serial.println(chara.value());
-  uint8_t data[2];
-  chara.readValue(data, 2);
-
-  // debug
+  if (len < 2)
+    return;
   Serial.print(data[0]);
   Serial.print(",");
   Serial.println(data[1]);
+
   switch (data[0])
   {
   case 0x00:
-    // 機器情報関連
     switch (data[1])
     {
     case 0x01:
-      // 機器情報取得
       enqueue(EVT_BLE_CMD_GET_DEVICE_INFO, NULL, 0);
       break;
     case 0x02:
-      // タイムスタンプ取得
       enqueue(EVT_BLE_CMD_GET_START_TIMESTAMP, NULL, 0);
       break;
     case 0x03:
-      // タイムスタンプ設定
+      if (len >= 6)
       {
-        uint8_t tmp[6];
-        chara.readValue(tmp, 6); // 6バイトの値を読み込む
-        enqueue(EVT_BLE_CMD_SET_START_TIMESTAMP, &tmp[2], 6);
+        enqueue(EVT_BLE_CMD_SET_START_TIMESTAMP, &data[2], 6);
       }
       break;
     case 0x04:
-      // 現在のタイムスタンプ取得
       enqueue(EVT_BLE_CMD_GET_TIMESTAMP, NULL, 0);
       break;
     case 0x05:
-      // 現在のデータページNO取得
       enqueue(EVT_BLE_CMD_GET_DATA_PAGE_NO, NULL, 0);
       break;
     default:
@@ -78,15 +68,12 @@ void MyBLE::SensorCharaWrittenHandler(BLEDevice central, BLECharacteristic chara
     }
     break;
   case 0x01:
-    // 測定関係
     switch (data[1])
     {
     case 0x00:
-      // 測定開始
       enqueue(EVT_BLE_CMD_MEAS_START, NULL, 0);
       break;
     case 0x01:
-      // 測定終了
       enqueue(EVT_BLE_CMD_MEAS_STOP, NULL, 0);
       break;
     default:
@@ -94,22 +81,16 @@ void MyBLE::SensorCharaWrittenHandler(BLEDevice central, BLECharacteristic chara
     }
     break;
   case 0x02:
-    // データ読み出し関係
     switch (data[1])
     {
     case 0x00:
-      // 1バイトデータ取得
+      if (len >= 5)
       {
-        uint8_t tmp[5];
-        chara.readValue(tmp, 5); // 7バイトの値を読み込む（3byte目はページ番号、4~5byte目はデータ番号）
-        enqueue(EVT_BLE_CMD_GET_DATA_1_DATA, &tmp[2], 3);
+        enqueue(EVT_BLE_CMD_GET_DATA_1_DATA, &data[2], 3);
       }
       break;
     case 0x01:
-      // 最新のデータ取得
-      {
-        enqueue(EVT_BLE_CMD_GET_LATEST_DATA, NULL, 0);
-      }
+      enqueue(EVT_BLE_CMD_GET_LATEST_DATA, NULL, 0);
       break;
     default:
       break;
@@ -121,66 +102,104 @@ void MyBLE::SensorCharaWrittenHandler(BLEDevice central, BLECharacteristic chara
   }
 }
 
-void MyBLE::SensorCharaReadHandler(BLEDevice central, BLECharacteristic chara)
+MyBLE::MyBLE()
 {
+  this->SENSOR_Service = new BLEService(BLE_SENSOR_SERVICE_UUID);
+  this->Battery_Service = new BLEService(BLE_BATTERY_SERVICE_UUID);
+
+  this->SENSOR_TX_Chara = new MyBLECharacteristic(BLE_SENSOR_TX_CHARA_UUID);
+  this->SENSOR_RX_Chara = new MyBLECharacteristic(BLE_SENSOR_RX_CHARA_UUID);
+  this->Battery_chara = new MyBLECharacteristic(BLE_BATTERY_CHARA_UUID);
 }
 
-void MyBLE::blePeripheralConnectHandler(BLEDevice central)
+MyBLE::~MyBLE()
 {
-
-  Serial.print("Connected event, central: ");
-  Serial.println(central.address());
-  enqueue(EVT_BLE_CONNECTED, NULL, 0);
-}
-
-void MyBLE::blePeripheralDisconnectHandler(BLEDevice central)
-{
-  Serial.print("Disconnected event, central: ");
-  Serial.println(central.address());
-  enqueue(EVT_BLE_DISCONNECTED, NULL, 0);
+  delete this->SENSOR_Service;
+  delete this->Battery_Service;
+  delete this->SENSOR_TX_Chara;
+  delete this->SENSOR_RX_Chara;
+  delete this->Battery_chara;
 }
 
 void MyBLE::initialize()
 {
-  BLE.end();
-  if (!BLE.begin())
-  {
-    Serial.println("starting BLE failed!");
-    while (1)
-      ;
-  }
-  BLE.setConnectable(true); // 接続可能にする
-  BLE.setPairable(true);    // ペアリング可能にする
-  BLE.setEventHandler(BLEConnected, this->blePeripheralConnectHandler);
-  BLE.setEventHandler(BLEDisconnected, this->blePeripheralDisconnectHandler);
-  BLE.setDeviceName(BLE_LOCAL_NAME);
-  BLE.setLocalName(BLE_LOCAL_NAME);
-  BLE.setAdvertisedService(*this->SENSOR_Service);                 // add the service UUID
-  BLE.setAdvertisedService(*this->Battery_Service);                // add the service UUID
-  this->Battery_chara->addDescriptor(*this->Battery_Descriptor);   // add descriptor
-  this->SENSOR_Service->addCharacteristic(*this->SENSOR_TX_Chara); // add characteristic
-  this->SENSOR_Service->addCharacteristic(*this->SENSOR_RX_Chara); // add characteristic
-  this->Battery_Service->addCharacteristic(*this->Battery_chara);  // add characteristic
-  this->SENSOR_TX_Chara->addDescriptor(*this->SENSOR_Descriptor);  // add descriptor
-  this->SENSOR_RX_Chara->addDescriptor(*this->SENSOR_Descriptor);  // add descriptor
-  this->Battery_chara->setEventHandler(BLERead, this->BatteryCharaReadHandler);
-  this->SENSOR_TX_Chara->setEventHandler(BLERead, this->SensorCharaReadHandler);
-  this->SENSOR_RX_Chara->setEventHandler(BLEWritten, this->SensorCharaWrittenHandler);
-  BLE.addService(*this->Battery_Service);
-  BLE.addService(*this->SENSOR_Service);
+  // Configure MTU size and bandwidth to allow larger data packets (e.g. 33 bytes)
+  Bluefruit.configPrphBandwidth(BANDWIDTH_MAX);
+
+  // Initialize Bluefruit
+  Bluefruit.begin();
+
+  // Disable automatic connection LED blinking to give full control to application
+  Bluefruit.autoConnLed(false);
+
+  // Set TX Power to 0dBm as requested by user
+  Bluefruit.setTxPower(0);
+
+  Bluefruit.setName(BLE_LOCAL_NAME);
+  Bluefruit.Periph.setConnectCallback(connect_callback);
+  Bluefruit.Periph.setDisconnectCallback(disconnect_callback);
+
+  // Initialize SENSOR Service
+  this->SENSOR_Service->begin();
+
+  // Initialize SENSOR TX Characteristic (Notify)
+  this->SENSOR_TX_Chara->setProperties(CHR_PROPS_NOTIFY);
+  this->SENSOR_TX_Chara->setPermission(SECMODE_OPEN, SECMODE_NO_ACCESS);
+  this->SENSOR_TX_Chara->setUserDescriptor("SENSOR");
+  this->SENSOR_TX_Chara->setMaxLen(33);
+  this->SENSOR_TX_Chara->begin();
+
+  // Initialize SENSOR RX Characteristic (Write)
+  this->SENSOR_RX_Chara->setProperties(CHR_PROPS_WRITE | CHR_PROPS_WRITE_WO_RESP);
+  this->SENSOR_RX_Chara->setPermission(SECMODE_OPEN, SECMODE_OPEN);
+  this->SENSOR_RX_Chara->setUserDescriptor("SENSOR");
+  this->SENSOR_RX_Chara->setWriteCallback(SensorCharaWrittenCallback);
+  this->SENSOR_RX_Chara->setMaxLen(7);
+  this->SENSOR_RX_Chara->begin();
+
+  // Initialize Battery Service
+  this->Battery_Service->begin();
+
+  // Initialize Battery Level Characteristic (Read/Notify)
+  this->Battery_chara->setProperties(CHR_PROPS_READ | CHR_PROPS_NOTIFY);
+  this->Battery_chara->setPermission(SECMODE_OPEN, SECMODE_NO_ACCESS);
+  this->Battery_chara->setUserDescriptor("Battery Level: 0 - 100");
+  this->Battery_chara->setFixedLen(1);
+  this->Battery_chara->begin();
+
+  // Set initial battery value
+  uint8_t batteryLevel = batterySensor->getValue();
+  this->Battery_chara->write(&batteryLevel, 1);
+
+  // Set up Advertising
+  Bluefruit.Advertising.addFlags(BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE);
+  Bluefruit.Advertising.addTxPower();
+
+  // Add Services to Advertising packet
+  Bluefruit.Advertising.addService(*this->SENSOR_Service);
+  Bluefruit.Advertising.addService(*this->Battery_Service);
+
+  Bluefruit.ScanResponse.addName();
+
+  // Set advertising interval (in units of 0.625 ms)
+  // Original BLE.setAdvertisingInterval(1600) means 1600 * 0.625 ms = 1000 ms.
+  // In bluefruit, advertising interval is set in 0.625 ms units, so 1600 is 1000ms.
+  Bluefruit.Advertising.setInterval(400, 400);
+  Bluefruit.Advertising.setFastTimeout(30); // number of seconds in fast mode
+  // Bluefruit.Advertising.start(0);           // 0 = Advertise continuously
 }
 
 void MyBLE::poll()
 {
-  BLE.poll();
+  // No-op for Bluefruit since it uses FreeRTOS/SoftDevice callbacks in the background
 }
 
 void MyBLE::advertiseStart()
 {
-  BLE.advertise();
+  Bluefruit.Advertising.start(0);
 }
 
 void MyBLE::advertiseStop()
 {
-  BLE.stopAdvertise();
+  Bluefruit.Advertising.stop();
 }

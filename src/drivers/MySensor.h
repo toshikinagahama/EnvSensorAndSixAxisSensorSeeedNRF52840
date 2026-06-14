@@ -29,6 +29,7 @@ public:
   //  関数
   MySensor();
   ~MySensor();
+  void sleep();
   void initialize();
   void getValue();
 };
