@@ -202,6 +202,12 @@
       if (!_oCharaWrite) return;
       if (isDownloading) return;
 
+      // Stop polling during download to avoid GATT conflicts
+      if (_pollingInterval) {
+        clearInterval(_pollingInterval);
+        _pollingInterval = null;
+      }
+
       const pageSelect = document.getElementById("page_selector").value;
       downloadTargetPage = parseInt(pageSelect); // -1 or 0-4
 
@@ -243,6 +249,7 @@
         console.error("Download Request Error", e);
         isDownloading = false;
         alert("ダウンロード中にエラーが発生しました");
+        startPolling(); // Resume polling on error
       }
     }
 
@@ -387,6 +394,7 @@
       document.getElementById("download_progress").style.width = "100%";
       alert(`ダウンロード完了: ${flashDataLog.length}件のデータを取得しました。CSV保存ボタンを押してください。`);
       document.getElementById("btn_save_flash").classList.remove("hidden");
+      startPolling(); // Resume polling after download completes
     }
 
     function addLogTable(record) {
@@ -456,7 +464,7 @@
 <body class="bg-gray-100 text-gray-800 font-sans">
   <div class="container mx-auto p-4 max-w-4xl">
     <header class="flex justify-between items-center mb-6">
-      <h1 class="text-2xl font-bold text-gray-900">EnvSensor Dashboard</h1>
+      <h1 class="text-2xl font-bold text-gray-900">EnvSensor Dashboard WebApp version 0.2</h1>
       <div class="flex items-center gap-4">
         <span id="status_text" class="font-semibold text-gray-500">状態: 未接続</span>
         <button onclick="connect()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow">
