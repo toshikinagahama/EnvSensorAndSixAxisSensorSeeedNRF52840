@@ -13,7 +13,7 @@ void MyEnvSensor::initialize()
   {
     Serial.println("Warning: Could not find a valid BMP280 sensor, check wiring!");
   }
-  if (!sht3x.begin(0x44))
+  if (!sht3x.begin(0x45))
   {
     Serial.println("Warning: Could not find a valid SHT3X sensor, check wiring!");
   }

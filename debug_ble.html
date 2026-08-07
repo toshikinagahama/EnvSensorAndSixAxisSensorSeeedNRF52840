@@ -14,7 +14,29 @@
     var _oCharaBatt;
     var dataLog = []; // Parsed data history (Live)
     var flashDataLog = []; // Downloaded Flash Data
-    var _pollingInterval;
+    var _pollingTimeout;
+
+    // GATT Operation Queue to prevent "GATT operation already in progress"
+    class GATTQueue {
+      constructor() {
+        this.queue = Promise.resolve();
+      }
+      enqueue(operation) {
+        return new Promise((resolve, reject) => {
+          this.queue = this.queue.then(async () => {
+            try {
+              const result = await operation();
+              resolve(result);
+            } catch (error) {
+              reject(error);
+            }
+          }).catch((error) => {
+            reject(error);
+          });
+        });
+      }
+    }
+    const gattQueue = new GATTQueue();
 
     var charts = {}; // Chart instances
 
@@ -29,16 +51,34 @@
     const NUM_PAGES = 5;
     const UNIT_DATA_PAGE = 64 * 1024; // 64KB
     const NUM_DATA_SIZE = 28; // Data size per record
-    const RECORDS_PER_PAGE = Math.floor(UNIT_DATA_PAGE * 4);
+    const RECORDS_PER_PAGE = Math.floor((UNIT_DATA_PAGE * 4) / NUM_DATA_SIZE);
 
     let isDownloading = false;
     let downloadCursor = { page: 0, index: 0 };
     let downloadTargetPage = -1; // -1: All, 0-4: Specific Page
     let downloadStartTime = 0;
+    let downloadForceCount = 0; // 0: Auto, >0: Force count
 
     window.onload = function () {
       initChart();
+      onPageSelectorChange();
     };
+
+    function onPageSelectorChange() {
+      const pageSelect = document.getElementById("page_selector").value;
+      const forceCountInput = document.getElementById("force_count");
+      if (!forceCountInput) return;
+      if (pageSelect === "-1") {
+        forceCountInput.value = "";
+        forceCountInput.disabled = true;
+        forceCountInput.placeholder = "All Pages時は不可";
+        forceCountInput.classList.add("bg-gray-200");
+      } else {
+        forceCountInput.disabled = false;
+        forceCountInput.placeholder = "強制取得件数 (任意)";
+        forceCountInput.classList.remove("bg-gray-200");
+      }
+    }
 
     function initChart() {
       const humCtx = document.getElementById('humChart').getContext('2d');
@@ -128,7 +168,7 @@
           "characteristicvaluechanged",
           onRecvSensorData
         );
-        await charaRead.startNotifications();
+        await gattQueue.enqueue(() => charaRead.startNotifications());
 
         _oCharaWrite = await service.getCharacteristic(
           DEVICE_WRITE_CHARACTERISTIC_UUID
@@ -142,9 +182,9 @@
             "characteristicvaluechanged",
             onRecvBatteryData
           );
-          await _oCharaBatt.startNotifications();
+          await gattQueue.enqueue(() => _oCharaBatt.startNotifications());
           // Read initial value
-          const val = await _oCharaBatt.readValue();
+          const val = await gattQueue.enqueue(() => _oCharaBatt.readValue());
           updateBatteryUI(val.getUint8(0));
         } catch (e) {
           console.warn("Battery service not found or accessible", e);
@@ -164,29 +204,33 @@
     }
 
     function startPolling() {
-      if (_pollingInterval) clearInterval(_pollingInterval);
-      _pollingInterval = setInterval(async () => {
+      if (_pollingTimeout) clearTimeout(_pollingTimeout);
+
+      async function poll() {
         if (isDownloading) return; // Stop polling while downloading
 
-        if (_oCharaWrite) {
-          try {
+        try {
+          if (_oCharaWrite) {
             // Command: Get Latest Data [0x02, 0x01]
             const cmd = new Uint8Array([0x02, 0x01]);
-            await _oCharaWrite.writeValue(cmd);
-          } catch (e) {
-            console.error("Polling error", e);
+            await gattQueue.enqueue(() => _oCharaWrite.writeValue(cmd));
           }
+
+          if (_oCharaBatt) {
+            const val = await gattQueue.enqueue(() => _oCharaBatt.readValue());
+            updateBatteryUI(val.getUint8(0));
+          }
+        } catch (e) {
+          console.error("Polling error", e);
         }
 
-        if (_oCharaBatt) {
-          try {
-            const val = await _oCharaBatt.readValue();
-            updateBatteryUI(val.getUint8(0));
-          } catch (e) {
-            console.warn("Battery Polling Error", e);
-          }
+        // Schedule next poll only if connected and not downloading
+        if (_oDevice && _oDevice.gatt.connected && !isDownloading) {
+          _pollingTimeout = setTimeout(poll, 1000);
         }
-      }, 1000); // 1Hz
+      }
+
+      _pollingTimeout = setTimeout(poll, 1000);
     }
 
     function onRecvBatteryData(event) {
@@ -202,14 +246,26 @@
       if (!_oCharaWrite) return;
       if (isDownloading) return;
 
-      // Stop polling during download to avoid GATT conflicts
-      if (_pollingInterval) {
-        clearInterval(_pollingInterval);
-        _pollingInterval = null;
-      }
-
       const pageSelect = document.getElementById("page_selector").value;
       downloadTargetPage = parseInt(pageSelect); // -1 or 0-4
+
+      const forceCountInput = document.getElementById("force_count").value;
+      downloadForceCount = forceCountInput ? parseInt(forceCountInput) : 0;
+
+      if (downloadTargetPage === -1 && downloadForceCount > 0) {
+        alert("All Pages選択時は強制取得件数は指定できません。特定ページを選択してください。");
+        return;
+      }
+      if (downloadForceCount < 0 || downloadForceCount > RECORDS_PER_PAGE) {
+        alert(`強制取得件数は 1 から ${RECORDS_PER_PAGE} の間で指定してください。`);
+        return;
+      }
+
+      // Stop polling during download to avoid GATT conflicts
+      if (_pollingTimeout) {
+        clearTimeout(_pollingTimeout);
+        _pollingTimeout = null;
+      }
 
       isDownloading = true;
       flashDataLog = [];
@@ -243,7 +299,7 @@
       cmd[4] = (downloadCursor.index >> 8) & 0xFF;
 
       try {
-        await _oCharaWrite.writeValue(cmd);
+        await gattQueue.enqueue(() => _oCharaWrite.writeValue(cmd));
         // Timeout handling if no response comes back could be added here
       } catch (e) {
         console.error("Download Request Error", e);
@@ -327,10 +383,24 @@
       const b7 = dataView.getUint8(7);
       const b8 = dataView.getUint8(8);
 
+      const isEmpty = (b5 === 0xFF && b6 === 0xFF && b7 === 0xFF && b8 === 0xFF);
+
       // Check if bytes 5-8 are 0xFF (Empty/Uninitialized)
-      if (b5 === 0xFF && b6 === 0xFF && b7 === 0xFF && b8 === 0xFF) {
-        console.log("Found empty record (0xFFFFFFFF). Stopping download.");
-        finishDownload();
+      if (isEmpty && downloadForceCount === 0) {
+        console.log(`Found empty record (0xFFFFFFFF) at Page ${page}, Index ${index}. Stopping/Skipping.`);
+        if (downloadTargetPage === -1) {
+          // All Pages Mode -> Skip to next page
+          downloadCursor.page++;
+          downloadCursor.index = 0;
+          if (downloadCursor.page >= NUM_PAGES) {
+            finishDownload();
+          } else {
+            setTimeout(requestNextRecord, 5);
+          }
+        } else {
+          // Single Page Mode -> Finish
+          finishDownload();
+        }
         return;
       }
 
@@ -345,10 +415,18 @@
       const tmpObj = dataView.getInt16(29, true) / 100.0;
       const tmpEnv = dataView.getInt16(31, true) / 100.0;
 
+      // Handle raw empty timestamp to prevent date parse bugs in export
+      let timeStr;
+      if (timestamp === 0xFFFFFFFF) {
+        timeStr = "EMPTY_RECORD";
+      } else {
+        timeStr = new Date(timestamp * 1000).toISOString();
+      }
+
       const record = {
         page: page,
         index: index,
-        time: new Date(timestamp * 1000).toISOString(),
+        time: timeStr,
         timestamp: timestamp,
         tmpEnv: tmpEnv,
         tmpObj: tmpObj,
@@ -358,10 +436,23 @@
       flashDataLog.push(record);
 
       // Update Progress
-      const totalRecords = NUM_PAGES * RECORDS_PER_PAGE;
       const currentCount = flashDataLog.length;
-      const percent = Math.min(100, (currentCount / 1000) * 100); // Just visual feedback, we don't know total valid records easily
-      document.getElementById("download_status").innerText = `受信中... ${currentCount}件`;
+      if (downloadForceCount > 0) {
+        const percent = Math.min(100, (currentCount / downloadForceCount) * 100);
+        document.getElementById("download_progress").style.width = `${percent}%`;
+        document.getElementById("download_status").innerText = `受信中... ${currentCount} / ${downloadForceCount}件`;
+      } else {
+        const percent = Math.min(100, (currentCount / 1000) * 100);
+        document.getElementById("download_progress").style.width = `${percent}%`;
+        document.getElementById("download_status").innerText = `受信中... ${currentCount}件`;
+      }
+
+      // Check if we reached the forced count
+      if (downloadForceCount > 0 && currentCount >= downloadForceCount) {
+        console.log(`Reached forced count of ${downloadForceCount}. Finishing download.`);
+        finishDownload();
+        return;
+      }
 
       // Next Record
       downloadCursor.index++;
@@ -419,8 +510,12 @@
       view.setUint8(0, 0x00); // Command Header?
       view.setUint8(1, 0x03); // Command ID for Set Timestamp? (Derived from previous code)
       view.setUint32(2, now, true); // Little Endian
-      await _oCharaWrite.writeValue(buffer);
-      console.log("Timestamp updated sent:", now);
+      try {
+        await gattQueue.enqueue(() => _oCharaWrite.writeValue(buffer));
+        console.log("Timestamp updated sent:", now);
+      } catch (e) {
+        console.error("Failed to update timestamp", e);
+      }
     }
 
     function exportCSV() {
@@ -464,7 +559,7 @@
 <body class="bg-gray-100 text-gray-800 font-sans">
   <div class="container mx-auto p-4 max-w-4xl">
     <header class="flex justify-between items-center mb-6">
-      <h1 class="text-2xl font-bold text-gray-900">EnvSensor Dashboard WebApp version 0.2</h1>
+      <h1 class="text-2xl font-bold text-gray-900">EnvSensor Dashboard WebApp version 0.3</h1>
       <div class="flex items-center gap-4">
         <span id="status_text" class="font-semibold text-gray-500">状態: 未接続</span>
         <button onclick="connect()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow">
@@ -513,7 +608,7 @@
       <div class="h-8 border-l border-gray-300 mx-2"></div>
 
       <div class="flex items-center gap-2">
-        <select id="page_selector"
+        <select id="page_selector" onchange="onPageSelectorChange()"
           class="border rounded px-2 py-2 text-gray-700 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500">
           <option value="-1">All Pages</option>
           <option value="0">Page 0</option>
@@ -522,6 +617,8 @@
           <option value="3">Page 3</option>
           <option value="4">Page 4</option>
         </select>
+        <input id="force_count" type="number" placeholder="強制取得件数 (任意)" min="1" max="9362"
+          class="border rounded px-2 py-2 w-38 text-gray-700 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-200" />
         <button id="btn_download" onclick="startDownload()"
           class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded disabled:bg-gray-400" disabled>
           内部メモリ取得
